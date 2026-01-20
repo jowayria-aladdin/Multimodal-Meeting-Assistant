@@ -1,0 +1,27 @@
+{
+  "name": "LughaCap",
+  "version": "3.1",
+  "manifest_version": 3,
+  "icons": {                    
+      "16": "logo.png",
+      "48": "logo.png",
+      "128": "logo.png"
+  },
+  "permissions": [
+    "tabCapture", 
+    "offscreen", 
+    "scripting", 
+    "downloads",
+    "storage"  
+  ],
+  "action": {
+    "default_title": "Click to Record"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "setup.html",
+    "open_in_tab": true
+  }
+}
