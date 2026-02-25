@@ -1,4 +1,6 @@
 {
+  "_comment": "This is the metadata file that defines permissions needed for ASR and Sign Language recording.",
+
   "name": "LughaCap",
   "version": "3.1",
   "manifest_version": 3,
