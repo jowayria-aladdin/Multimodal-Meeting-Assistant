@@ -4,6 +4,8 @@ import glob
 import subprocess
 import time
 import requests
+import json
+from datetime import timedelta
 from pathlib import Path
 from datetime import datetime
 
@@ -25,28 +27,84 @@ print(f" Interval:   Every 2 minutes")
 
 def call_sign_language_api(webm_path):
     try:
-        with open(webm_path, "rb") as f:
-            response = requests.post(
-                SIGN_API_URL,
-                files={"video": (os.path.basename(webm_path), f, "video/webm")},
-                timeout=120
-            )
+        # get duration from format container
+        probe = subprocess.run(
+            ['ffprobe', '-v', 'error',
+             '-select_streams', 'v:0',
+             '-count_frames',
+             '-show_entries', 'stream=nb_read_frames,r_frame_rate',
+             '-of', 'default=noprint_wrappers=1', webm_path],
+            capture_output=True, text=True
+        )
+        
+        # parse fps and frame count
+        fps = 30  # default
+        frames = 0
+        for line in probe.stdout.strip().split('\n'):
+            if 'r_frame_rate' in line:
+                val = line.split('=')[1]
+                num, den = val.split('/')
+                fps = float(num) / float(den)
+            if 'nb_read_frames' in line:
+                val = line.split('=')[1].strip()
+                if val != 'N/A':
+                    frames = int(val)
 
-        if response.status_code == 200:
-            result      = response.json()
-            base_name   = os.path.basename(webm_path).replace(".webm", "")
-            result_path = os.path.join(OUTPUT_DIR, f"{base_name}_signs.txt")
+        duration = frames / fps if frames > 0 else 0
+        print(f"   Frames: {frames}, FPS: {fps:.1f}, Duration: {duration:.1f}s")
 
-            with open(result_path, "w", encoding="utf-8") as out:
-                out.write(f"Top prediction : {result['sign']} "
-                          f"({result['confidence']*100:.1f}%)\n\n")
-                out.write("Top 10:\n")
-                for i, p in enumerate(result.get("top10", []), 1):
-                    out.write(f"  #{i:2d}  {p['sign']:<30} {p['confidence']*100:.1f}%\n")
+        if duration == 0:
+            print("   Could not determine duration — skipping")
+            return
 
-            print(f"   Sign: {result['sign']} ({result['confidence']*100:.1f}%)")
-        else:
-            print(f"   API error {response.status_code}: {response.text}")
+        def fmt(secs):
+            h = int(secs // 3600)
+            m = int((secs % 3600) // 60)
+            s = int(secs % 60)
+            return f"{h:02}:{m:02}:{s:02}"
+
+        output = []
+        seg_start = 0
+
+        while seg_start < duration:
+            seg_end  = min(seg_start + 5, duration)
+            seg_path = f"/tmp/seg_{int(seg_start)}.webm"
+
+            subprocess.run([
+                'ffmpeg', '-y', '-i', webm_path,
+                '-ss', str(seg_start),
+                '-t', '5',
+                '-c', 'copy', seg_path
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+            with open(seg_path, "rb") as f:
+                response = requests.post(
+                    SIGN_API_URL,
+                    files={"video": (f"seg_{int(seg_start)}.webm", f, "video/webm")},
+                    timeout=120
+                )
+
+            os.remove(seg_path)
+
+            if response.status_code == 200:
+                result = response.json()
+                output.append({
+                    "speaker":    "disabled",
+                    "start":      fmt(seg_start),
+                    "end":        fmt(seg_end),
+                    "text":       result["sign"],
+                    "confidence": round(result["confidence"] * 100, 1)
+                })
+
+            seg_start += 5
+
+        base_name   = os.path.basename(webm_path).replace(".webm", "")
+        result_path = os.path.join(OUTPUT_DIR, f"{base_name}_signs.json")
+
+        with open(result_path, "w", encoding="utf-8") as out:
+            json.dump(output, out, ensure_ascii=False, indent=2)
+
+        print(f"   Saved: {os.path.basename(result_path)}")
 
     except requests.exceptions.ConnectionError:
         print("   API not running — start sign_lang_api.py first")

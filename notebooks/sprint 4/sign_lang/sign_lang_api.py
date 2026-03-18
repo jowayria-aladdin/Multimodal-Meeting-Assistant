@@ -130,6 +130,11 @@ async def predict(video: UploadFile = File(...)):
         sequence = extract_sequence_from_video(tmp_path)
         if len(sequence) == 0:
             raise HTTPException(status_code=400, detail="No frames extracted from video")
+        
+        # pad short sequences instead of rejecting them
+        if len(sequence) < NUM_FRAMES:
+            pad = np.repeat(sequence[-1:], NUM_FRAMES - len(sequence), axis=0)
+            sequence = np.concatenate([sequence, pad], axis=0)
 
         # 2. Preprocess — same pipeline as test.py
         sequence = normalize_sequence_length(sequence, NUM_FRAMES)  # (40, 225)
