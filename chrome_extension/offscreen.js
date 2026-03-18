@@ -64,7 +64,10 @@ async function startCapture(streamId) {
             }
         });
     } catch (err) {
-        console.warn(" Mic denied/unavailable.");
+        console.warn(" Mic denied/unavailable. Proceeding with tab audio only.");
+        // By leaving micStream as null, the audio mixer below will automatically 
+        // switch to the fallback mode and just record the meeting/system audio!
+        micStream = null;
     }
 
     // get webcam stream "optional" since not everyone will want it
@@ -75,6 +78,8 @@ async function startCapture(streamId) {
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
         });
     } catch (err) {
+        // If they denied the camera or don't have one, just log it and move on!
+        console.warn(" Camera denied/unavailable. Proceeding without webcam for this session.");
         camStream = null;
     }
 

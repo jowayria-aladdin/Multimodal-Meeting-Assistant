@@ -6,6 +6,12 @@
  where the actual media capture happens. It ensures files are downloaded correctly
  */
 
+// automatically open the setup page when the extension is first installed
+chrome.runtime.onInstalled.addListener((details) => {
+    if (details.reason === 'install') {
+        chrome.runtime.openOptionsPage();
+    }
+});
 //initialization
 // Resets the extension state whenever Chrome starts to prevent the UI from getting stuck in a recording state if the browser crashed.
 chrome.runtime.onStartup.addListener(() => {
@@ -102,13 +108,23 @@ chrome.action.onClicked.addListener(async (tab) => {
 // it listens for three types of messages: 'DOWNLOAD' to trigger a file download, 'STOP_DONE' to reset the state after saving is complete, and 'ERROR' to handle any errors that occur during recording or saving.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   
+  // permissions handler listens for a message indicating that permissions are missing. If the offscreen document encounters a permissions issue (e.g., user denied access to capture), it sends this message to the background script, which then resets the state and opens the setup page to prompt the user to grant the necessary permissions.
+  if (msg.type === 'PERMISSIONS_REQUIRED') {
+      console.warn("Permissions missing. Opening setup page.");
+      // Reset the badge and state
+      chrome.storage.local.set({ recordingState: 'IDLE' });
+      chrome.action.setBadgeText({ text: "" });
+      // Automatically pop open setup.html
+      chrome.runtime.openOptionsPage(); 
+  }
+
   // download the recorded file using the Chrome Downloads API. The message should include the URL of the recorded media and its file type.
   //  The filename is generated using a timestamp to ensure uniqueness. This allows the user to save the recorded meeting directly to their device.
   //download handler receives the URLs from offscreen.js
   if (msg.type === 'DOWNLOAD') {
     const timestamp = Math.floor(Date.now() / 1000);
     const filename = `meeting_${timestamp}_${msg.fileType}.webm`;
-//// Triggers the Chrome download manager. 
+//triggers the Chrome download manager. 
     chrome.downloads.download({
       url: msg.url,
       filename: filename,
