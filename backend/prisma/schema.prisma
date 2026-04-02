@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model User {
+  id                  Int                   @id @default(autoincrement())
+  username            String                @unique
+  email               String                @unique
+  password_hash       String
+  companyMemberships  CompanyMembership[]
+  meetingParticipants MeetingParticipants[]
+  taskAssignees       TaskAssignees[]
+}
+
+model Company {
+  id          Int                 @id @default(autoincrement())
+  name        String
+  logo        String?
+  memberships CompanyMembership[]
+  meetings    Meeting[]
+}
+
+model CompanyMembership {
+  user_id    Int
+  company_id Int
+  role       String
+  user       User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, company_id])
+  @@index([company_id])
+}
+
+model Meeting {
+  id                   Int                   @id @default(autoincrement())
+  company_id           Int
+  title                String
+  transcript           String?
+  summary              String?
+  created_at           DateTime              @default(now())
+  company              Company               @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  meetingParticipants  MeetingParticipants[]
+  tasks                Task[]
+
+  @@index([company_id])
+  @@index([created_at])
+}
+
+model MeetingParticipants {
+  meeting_id Int
+  user_id    Int
+  meeting    Meeting @relation(fields: [meeting_id], references: [id], onDelete: Cascade)
+  user       User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([meeting_id, user_id])
+  @@index([user_id])
+}
+
+model Task {
+  id            Int             @id @default(autoincrement())
+  meeting_id    Int
+  task_text     String
+  due_date      DateTime?
+  status        TaskStatus      @default(TODO)
+  meeting       Meeting         @relation(fields: [meeting_id], references: [id], onDelete: Cascade)
+  taskAssignees TaskAssignees[]
+
+  @@index([meeting_id])
+  @@index([status])
+  @@index([due_date])
+}
+
+model TaskAssignees {
+  task_id  Int
+  user_id  Int
+  task     Task @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  user     User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([task_id, user_id])
+  @@index([user_id])
+}
