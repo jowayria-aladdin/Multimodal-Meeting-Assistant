@@ -2,6 +2,7 @@ import os
 import glob
 import subprocess
 import time
+import shutil  # Added this to quickly move files without converting
 from pathlib import Path
 from datetime import datetime
 
@@ -32,45 +33,44 @@ def process_files():
 
     for source_path in found_files:
         filename = os.path.basename(source_path)
-        cmd = []
-        output_filename = ""
         
-        #  screen recordingto MP4
-        if "_video" in filename:
-            output_filename = filename.replace(".webm", ".mp4")
-            output_path = os.path.join(OUTPUT_DIR, output_filename)
-            cmd = ['ffmpeg', '-i', source_path, '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac', '-y', output_path]
+        #  VIDEO OR WEBCAM Just move the .webm file directly (Instantly)
+        if "_video" in filename or "_webcam" in filename:
+            output_path = os.path.join(OUTPUT_DIR, filename) # Keep the .webm extension
+            print(f" Moving: {filename}.")
             
-        # webcam recording to MP4
-        elif "_webcam" in filename:
-            output_filename = filename.replace(".webm", ".mp4")
-            output_path = os.path.join(OUTPUT_DIR, output_filename)
-            cmd = ['ffmpeg', '-i', source_path, '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac', '-y', output_path]
+            try:
+                shutil.move(source_path, output_path)
+                print(f" Saved: {filename}")
+            except Exception as e:
+                print(f"  Error moving file: {e}")
+                
+            continue # Move to the next file in the loop
 
-        # audio recording to WAV
+        # AUDIO Convert to .wav using FFmpeg
         elif "_audio" in filename:
             output_filename = filename.replace(".webm", ".wav")
             output_path = os.path.join(OUTPUT_DIR, output_filename)
             cmd = ['ffmpeg', '-i', source_path, '-vn', '-acodec', 'pcm_s16le', '-ar', '48000', '-ac', '2', '-y', output_path]
+            
+            print(f" Converting: {filename}.")
+            
+            try:
+                # Run FFmpeg
+                subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                print(f" Saved: {output_filename}")
+                
+                # Delete Original Audio .webm
+                try:
+                    os.remove(source_path)
+                    print(f"   Deleted original.")
+                except:
+                    pass
+            except Exception as e:
+                print(f"  Error: {e}")
         
         else:
             continue
-
-        print(f" Converting: {filename}.")
-        
-        try:
-            # Run FFmpeg
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print(f" Saved: {output_filename}")
-            
-            # Delete Original
-            try:
-                os.remove(source_path)
-                print(f"   Deleted original.")
-            except:
-                pass
-        except Exception as e:
-            print(f"  Error: {e}")
 
     print(f"[{datetime.now().strftime('%H:%M:%S')}]  Batch finished. Resuming watch.")
     return True
