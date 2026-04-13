@@ -1,0 +1,22 @@
+services:
+
+  api:
+    build: ./server
+    container_name: meeting_api
+    ports:
+      - "5001:5001"
+    restart: unless-stopped
+
+  watcher:
+    build: ./chrome_extension
+    container_name: meeting_watcher
+    volumes:
+      - ${DOWNLOADS_DIR}:/downloads
+      - ${PROJECT_DIR}/outputs:/app/converted_output
+    environment:
+      - DOWNLOADS_DIR=/downloads
+      - OUTPUT_DIR=/app/converted_output
+      - SIGN_API_URL=http://api:5001/predict
+    depends_on:
+      - api
+    restart: unless-stopped
