@@ -18,3 +18,7 @@ __pycache__/
 segments/
 raw_output/
 validated_output/
+uploads/
+llm_output/
+llm_input/
+final_output/

@@ -1,9 +1,7 @@
 import json
 from pathlib import Path
 from typing import List
-
 from pydantic import BaseModel, Field, ValidationError, field_validator
-
 
 class SegmentItem(BaseModel):
     speaker: str = Field(..., min_length=1)
@@ -27,7 +25,6 @@ class SegmentItem(BaseModel):
             raise ValueError("end must be greater than or equal to start")
         return end_value
 
-
 def validate_json_file(input_path: str, output_path: str | None = None) -> List[dict]:
     input_file = Path(input_path)
 
@@ -46,14 +43,15 @@ def validate_json_file(input_path: str, output_path: str | None = None) -> List[
     if output_path:
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
+
         with output_file.open("w", encoding="utf-8") as f:
             json.dump(validated_data, f, indent=4, ensure_ascii=False)
 
     return validated_data
 
-
 if __name__ == "__main__":
-    audio_input = "./raw_output/1st_pipeline.json"
+    # Audio
+    audio_input = "./raw_output/audio_raw.json"
     audio_output = "./validated_output/validated_audio.json"
 
     try:
@@ -64,17 +62,16 @@ if __name__ == "__main__":
         print("Audio JSON validation failed:")
         print(e)
 
-    # # Example 2: video JSON
-    # # Use this only if the video branch has the exact same schema
-    # video_input = "output/video_pipeline.json"
-    # video_output = "output/validated_video.json"
+    # Video
+    video_input = "./raw_output/video_raw.json"
+    video_output = "./validated_output/validated_video.json"
 
-    # try:
-    #     validated_video = validate_json_file(video_input, video_output)
-    #     print(f"Video JSON validated successfully. Items: {len(validated_video)}")
-    #     print(f"Saved: {video_output}")
-    # except FileNotFoundError:
-    #     print("Video file not found yet, skipped.")
-    # except (ValidationError, ValueError) as e:
-    #     print("Video JSON validation failed:")
-    #     print(e)
+    try:
+        validated_video = validate_json_file(video_input, video_output)
+        print(f"Video JSON validated successfully. Items: {len(validated_video)}")
+        print(f"Saved: {video_output}")
+    except FileNotFoundError:
+        print("Video file not found yet, skipped.")
+    except (ValidationError, ValueError) as e:
+        print("Video JSON validation failed:")
+        print(e)
