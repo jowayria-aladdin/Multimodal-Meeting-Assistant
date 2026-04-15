@@ -22,9 +22,7 @@ class PipelineState(TypedDict, total=False):
     validated_merged_json: Optional[str]
 
     llm_input_json: Optional[str]
-
-    summary_path: Optional[str]
-    tasks_path: Optional[str]
+    llm_output_path: Optional[str]
 
     final_output: Optional[dict]
     error: Optional[str]
@@ -129,48 +127,40 @@ def simplify_node(state: PipelineState):
 
     return {"llm_input_json": output}
 
-# 8) LLM (PLACEHOLDER)
+# 8) LLM
 def llm_node(state: PipelineState):
-    # simulate teammate output for now
+    from llm_pipeline import run_llm_pipeline
 
     os.makedirs("./llm_output", exist_ok=True)
 
-    summary_path = "./llm_output/summary.txt"
-    tasks_path = "./llm_output/executive_tasks.json"
+    output = "./llm_output/llm_results.json"
 
-    with open(summary_path, "w") as f:
-        f.write("This is a dummy summary.")
-
-    with open(tasks_path, "w") as f:
-        json.dump(
-            [{"task": "dummy task"}],
-            f,
-            indent=4
-        )
+    run_llm_pipeline(
+        input_path=state["llm_input_json"],
+        output_path=output,
+        language=state["language"]
+    )
 
     return {
-        "summary_path": summary_path,
-        "tasks_path": tasks_path
+        "llm_output_path": output
     }
 
 # 9) FINAL OUTPUT
 def final_node(state: PipelineState):
-    with open(state["summary_path"], "r") as f:
-        summary = f.read()
-
-    with open(state["tasks_path"], "r") as f:
-        tasks = json.load(f)
+    with open(state["llm_output_path"], "r", encoding="utf-8") as f:
+        llm_output = json.load(f)
 
     with open(state["validated_audio_json"], "r", encoding="utf-8") as f:
         transcription = json.load(f)
 
     full_transcript_text = "\n".join(
-        f"{seg['speaker']}: {seg['text']}" for seg in transcription
+        seg['text'] for seg in transcription
     )
 
     final = {
-        "summary": summary,
-        "tasks": tasks,
+        "summary": llm_output["summary"],
+        "tasks": llm_output["tasks"],
+        "name_recognition": llm_output["name_recognition"],
         "transcription": transcription,
         "full_transcript_text": full_transcript_text
     }

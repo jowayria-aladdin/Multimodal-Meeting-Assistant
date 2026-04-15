@@ -97,7 +97,7 @@ def run_asr_pipeline(
     Path(os.path.dirname(output_path)).mkdir(parents=True, exist_ok=True)
 
     # Load env
-    load_dotenv()
+    load_dotenv("../.env", override=True)
     PYANNOTE_API_KEY = os.getenv("PYANNOTE_API_KEY")
     if not PYANNOTE_API_KEY:
         raise RuntimeError("Missing PYANNOTE_API_KEY")
