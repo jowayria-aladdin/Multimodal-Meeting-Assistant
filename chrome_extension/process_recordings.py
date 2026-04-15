@@ -10,11 +10,11 @@ from pathlib import Path
 from datetime import datetime
 
 # configurations 
-PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR = os.path.join(PROJECT_DIR, "converted_output")
-DOWNLOADS_DIR = str(Path.home() / "Downloads")
-CHECK_INTERVAL = 120  # check every 2 minutes 
-SIGN_API_URL   = "http://localhost:5001/predict"
+PROJECT_DIR    = os.path.dirname(os.path.abspath(__file__))
+DOWNLOADS_DIR  = os.environ.get("DOWNLOADS_DIR", str(Path.home() / "Downloads"))
+OUTPUT_DIR     = os.environ.get("OUTPUT_DIR", os.path.join(PROJECT_DIR, "converted_output"))
+CHECK_INTERVAL = 120  # check every 2 minutes
+SIGN_API_URL   = os.environ.get("SIGN_API_URL", "http://localhost:5001/predict")
 
 #setup output directory 
 if not os.path.exists(OUTPUT_DIR):
@@ -27,31 +27,21 @@ print(f" Interval:   Every 2 minutes")
 
 def call_sign_language_api(webm_path):
     try:
-        # get duration from format container
+        # count frames directly, use fixed 30fps for webm
         probe = subprocess.run(
             ['ffprobe', '-v', 'error',
              '-select_streams', 'v:0',
              '-count_frames',
-             '-show_entries', 'stream=nb_read_frames,r_frame_rate',
-             '-of', 'default=noprint_wrappers=1', webm_path],
+             '-show_entries', 'stream=nb_read_frames',
+             '-of', 'default=noprint_wrappers=1:nokey=1', webm_path],
             capture_output=True, text=True
         )
-        
-        # parse fps and frame count
-        fps = 30  # default
-        frames = 0
-        for line in probe.stdout.strip().split('\n'):
-            if 'r_frame_rate' in line:
-                val = line.split('=')[1]
-                num, den = val.split('/')
-                fps = float(num) / float(den)
-            if 'nb_read_frames' in line:
-                val = line.split('=')[1].strip()
-                if val != 'N/A':
-                    frames = int(val)
 
-        duration = frames / fps if frames > 0 else 0
-        print(f"   Frames: {frames}, FPS: {fps:.1f}, Duration: {duration:.1f}s")
+        val = probe.stdout.strip()
+        frames = int(val) if val.isdigit() else 0
+        fps = 30
+        duration = frames / fps
+        print(f"   Frames: {frames}, FPS: {fps}, Duration: {duration:.1f}s")
 
         if duration == 0:
             print("   Could not determine duration — skipping")
@@ -70,12 +60,19 @@ def call_sign_language_api(webm_path):
             seg_end  = min(seg_start + 5, duration)
             seg_path = f"/tmp/seg_{int(seg_start)}.webm"
 
-            subprocess.run([
+            result_ffmpeg = subprocess.run([
                 'ffmpeg', '-y', '-i', webm_path,
                 '-ss', str(seg_start),
                 '-t', '5',
-                '-c', 'copy', seg_path
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                '-c:v', 'libvpx',
+                '-c:a', 'libvorbis',
+                seg_path
+            ], capture_output=True, text=True)
+
+            if not os.path.exists(seg_path):
+                print(f"   Segment {int(seg_start)}s not created — skipping")
+                seg_start += 5
+                continue
 
             with open(seg_path, "rb") as f:
                 response = requests.post(
@@ -92,9 +89,11 @@ def call_sign_language_api(webm_path):
                     "speaker":    "disabled",
                     "start":      fmt(seg_start),
                     "end":        fmt(seg_end),
-                    "text":       result["sign"],
-                    "confidence": round(result["confidence"] * 100, 1)
+                    "text":       result["sign"]
                 })
+                print(f"   {fmt(seg_start)} → {result['sign']} ({result['confidence']*100:.1f}%)")
+            else:
+                print(f"   Segment {int(seg_start)}s failed: {response.status_code} — {response.json()}")
 
             seg_start += 5
 
@@ -186,4 +185,3 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         print("\n Watcher stopped by user.")
-
