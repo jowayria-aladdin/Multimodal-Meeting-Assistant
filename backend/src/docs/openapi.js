@@ -171,7 +171,25 @@ export const openApiSpec = {
           meeting_id: { type: "integer", example: 1 },
           task_text: { type: "string", example: "Prepare architecture draft" },
           due_date: { type: "string", format: "date-time", nullable: true },
-          status: { type: "string", enum: ["TODO", "IN_PROGRESS", "DONE"], example: "TODO" }
+          status: { type: "string", enum: ["TODO", "IN_PROGRESS", "DONE"], example: "TODO" },
+          taskAssignees: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                task_id: { type: "integer", example: 1 },
+                user_id: { type: "integer", example: 2 },
+                user: {
+                  type: "object",
+                  properties: {
+                    id: { type: "integer", example: 2 },
+                    username: { type: "string", example: "mohamed" },
+                    email: { type: "string", format: "email", example: "mohamed@example.com" }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -550,7 +568,54 @@ export const openApiSpec = {
           { name: "id", in: "path", required: true, schema: { type: "integer" } }
         ],
         responses: {
-          "200": { description: "Meeting returned" },
+          "200": {
+            description: "Meeting returned",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Meeting" },
+                example: {
+                  id: 42,
+                  company_id: 3,
+                  title: "Sprint Planning - Week 12",
+                  transcript: "SPEAKER_00 [00:00:01.120 - 00:00:06.840]: Good morning everyone, let's start with blockers.\nSPEAKER_01 [00:00:07.050 - 00:00:14.200]: Backend API for meeting upload is ready, I still need to finalize callback validation.\nSPEAKER_00 [00:00:14.410 - 00:00:20.030]: Great, please create tasks for docs and frontend integration.",
+                  summary: "Team reviewed blockers, confirmed backend upload pipeline readiness, and assigned follow-up actions for docs and frontend integration.",
+                  processing_status: "COMPLETED",
+                  progress_percent: 100,
+                  status_message: "Processing completed",
+                  processing_started_at: "2026-04-16T18:45:11.000Z",
+                  processing_completed_at: "2026-04-16T18:47:03.000Z",
+                  error_message: null,
+                  created_at: "2026-04-16T18:44:58.000Z",
+                  meetingParticipants: [
+                    {
+                      meeting_id: 42,
+                      user_id: 7
+                    },
+                    {
+                      meeting_id: 42,
+                      user_id: 11
+                    }
+                  ],
+                  tasks: [
+                    {
+                      id: 101,
+                      meeting_id: 42,
+                      task_text: "Publish backend API integration notes for frontend team",
+                      due_date: "2026-04-18T12:00:00.000Z",
+                      status: "IN_PROGRESS"
+                    },
+                    {
+                      id: 102,
+                      meeting_id: 42,
+                      task_text: "Implement SSE progress updates with polling fallback",
+                      due_date: null,
+                      status: "TODO"
+                    }
+                  ]
+                }
+              }
+            }
+          },
           "404": { description: "Meeting not found" }
         }
       },

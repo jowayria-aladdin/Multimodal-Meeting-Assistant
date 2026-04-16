@@ -3,7 +3,14 @@ import { httpError } from "../utils/httpError.js";
 
 const assigneeSelection = {
   task_id: true,
-  user_id: true
+  user_id: true,
+  user: {
+    select: {
+      id: true,
+      username: true,
+      email: true
+    }
+  }
 };
 
 const resolveUserByEmail = async (email) => {
