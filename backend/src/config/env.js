@@ -16,5 +16,7 @@ export const env = {
   databaseUrl: process.env.DATABASE_URL,
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
-  corsOrigin: process.env.CORS_ORIGIN || "*"
+  corsOrigin: process.env.CORS_ORIGIN || "*",
+  fastApiProcessUrl: process.env.FASTAPI_PROCESS_URL || "http://localhost:8000/process-audio",
+  internalCallbackSecret: process.env.INTERNAL_CALLBACK_SECRET || "change-me"
 };

@@ -4,11 +4,13 @@ import usersRoutes from "./users.routes.js";
 import companiesRoutes from "./companies.routes.js";
 import meetingsRoutes from "./meetings.routes.js";
 import tasksRoutes from "./tasks.routes.js";
+import internalRoutes from "./internal.routes.js";
 import { requireAuth } from "../middlewares/authMiddleware.js";
 
 const router = Router();
 
 router.use("/auth", authRoutes);
+router.use("/internal", internalRoutes);
 router.use("/users", requireAuth, usersRoutes);
 router.use("/companies", requireAuth, companiesRoutes);
 router.use("/meetings", requireAuth, meetingsRoutes);

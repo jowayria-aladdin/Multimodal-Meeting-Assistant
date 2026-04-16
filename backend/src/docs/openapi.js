@@ -31,6 +31,12 @@ export const openApiSpec = {
         in: "header",
         name: "X-Company-Id",
         description: "Required for tenant-scoped endpoints."
+      },
+      internalSecret: {
+        type: "apiKey",
+        in: "header",
+        name: "X-Internal-Secret",
+        description: "Required for FastAPI callback endpoints."
       }
     },
     schemas: {
@@ -129,7 +135,33 @@ export const openApiSpec = {
           title: { type: "string", example: "Weekly Sync" },
           transcript: { type: "string", nullable: true, example: "https://example.com/transcript.txt" },
           summary: { type: "string", nullable: true, example: "Discussed blockers and next steps." },
+          processing_status: {
+            type: "string",
+            enum: ["UPLOADED", "QUEUED", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED"],
+            example: "PROCESSING"
+          },
+          progress_percent: { type: "integer", example: 35 },
+          status_message: { type: "string", nullable: true, example: "Transcribing audio" },
+          processing_started_at: { type: "string", format: "date-time", nullable: true },
+          processing_completed_at: { type: "string", format: "date-time", nullable: true },
+          error_message: { type: "string", nullable: true },
           created_at: { type: "string", format: "date-time" }
+        }
+      },
+      MeetingStatus: {
+        type: "object",
+        properties: {
+          meetingId: { type: "integer", example: 1 },
+          status: {
+            type: "string",
+            enum: ["UPLOADED", "QUEUED", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED"],
+            example: "PROCESSING"
+          },
+          progress: { type: "integer", example: 60 },
+          stage: { type: "string", nullable: true, example: "Extracting tasks" },
+          error: { type: "string", nullable: true },
+          processingStartedAt: { type: "string", format: "date-time", nullable: true },
+          processingCompletedAt: { type: "string", format: "date-time", nullable: true }
         }
       },
       Task: {
@@ -459,6 +491,42 @@ export const openApiSpec = {
         }
       }
     },
+    "/api/meetings/upload": {
+      post: {
+        tags: ["Meetings"],
+        summary: "Create meeting from uploaded webm and wav files",
+        security: [{ bearerAuth: [], tenantHeader: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["title", "webmFile", "wavFiles"],
+                properties: {
+                  title: { type: "string", example: "Sprint Review Audio" },
+                  webmFile: { type: "string", format: "binary" },
+                  wavFiles: {
+                    type: "array",
+                    items: { type: "string", format: "binary" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          "201": {
+            description: "Meeting created and queued",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Meeting" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/meetings/{id}": {
       get: {
         tags: ["Meetings"],
@@ -492,6 +560,52 @@ export const openApiSpec = {
         ],
         responses: {
           "204": { description: "Meeting deleted" }
+        }
+      }
+    },
+    "/api/meetings/{id}/status": {
+      get: {
+        tags: ["Meetings"],
+        summary: "Get processing status for a meeting",
+        security: [{ bearerAuth: [], tenantHeader: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } }
+        ],
+        responses: {
+          "200": {
+            description: "Meeting status returned",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/MeetingStatus" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/meetings/{id}/events": {
+      get: {
+        tags: ["Meetings"],
+        summary: "Stream meeting processing events (SSE)",
+        security: [{ bearerAuth: [], tenantHeader: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } }
+        ],
+        responses: {
+          "200": { description: "SSE stream opened" }
+        }
+      }
+    },
+    "/api/meetings/{id}/reprocess": {
+      post: {
+        tags: ["Meetings"],
+        summary: "Requeue processing for a meeting",
+        security: [{ bearerAuth: [], tenantHeader: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } }
+        ],
+        responses: {
+          "202": { description: "Reprocess accepted" }
         }
       }
     },
@@ -656,6 +770,57 @@ export const openApiSpec = {
         ],
         responses: {
           "204": { description: "Assignee removed" }
+        }
+      }
+    },
+    "/api/internal/meetings/{id}/callback": {
+      post: {
+        tags: ["Meetings"],
+        summary: "Internal callback from FastAPI for meeting processing",
+        security: [{ internalSecret: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["status"],
+                properties: {
+                  status: { type: "string", example: "PROCESSING" },
+                  progress: { type: "integer", example: 50 },
+                  stage: { type: "string", example: "Summarizing" },
+                  message: { type: "string", example: "Running summarization model" },
+                  error: { type: "string", nullable: true },
+                  result: {
+                    type: "object",
+                    properties: {
+                      transcript: { type: "string" },
+                      summary: { type: "string" },
+                      tasks: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            task_text: { type: "string" },
+                            title: { type: "string" },
+                            due_date: { type: "string", format: "date-time", nullable: true },
+                            status: { type: "string", enum: ["TODO", "IN_PROGRESS", "DONE"] }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          "200": { description: "Callback processed" },
+          "401": { description: "Invalid internal callback secret" }
         }
       }
     }

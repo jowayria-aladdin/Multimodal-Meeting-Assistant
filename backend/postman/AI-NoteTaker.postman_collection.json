@@ -262,6 +262,53 @@
           }
         },
         {
+          "name": "POST Upload Meeting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Company-Id",
+                "value": "{{companyId}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Sprint Review Audio",
+                  "type": "text"
+                },
+                {
+                  "key": "webmFile",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "wavFiles",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/meetings/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "meetings",
+                "upload"
+              ]
+            }
+          }
+        },
+        {
           "name": "POST Meeting",
           "request": {
             "method": "POST",
