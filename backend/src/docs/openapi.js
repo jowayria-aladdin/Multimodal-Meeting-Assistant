@@ -378,9 +378,9 @@ export const openApiSpec = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["user_id", "role"],
+                required: ["email", "role"],
                 properties: {
-                  user_id: { type: "integer", example: 2 },
+                  email: { type: "string", format: "email", example: "user@example.com" },
                   role: { type: "string", example: "member" }
                 }
               }
@@ -623,9 +623,9 @@ export const openApiSpec = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["user_id"],
+                required: ["email"],
                 properties: {
-                  user_id: { type: "integer", example: 2 }
+                  email: { type: "string", format: "email", example: "user@example.com" }
                 }
               }
             }
@@ -745,9 +745,9 @@ export const openApiSpec = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["user_id"],
+                required: ["email"],
                 properties: {
-                  user_id: { type: "integer", example: 2 }
+                  email: { type: "string", format: "email", example: "user@example.com" }
                 }
               }
             }

@@ -214,7 +214,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": 2,\n  \"role\": \"member\"\n}"
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"role\": \"member\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/companies/{{companyId}}/memberships",
@@ -362,7 +362,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": 2\n}"
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/meetings/{{meetingId}}/participants",
@@ -463,7 +463,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": 2\n}"
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/tasks/{{taskId}}/assignees",

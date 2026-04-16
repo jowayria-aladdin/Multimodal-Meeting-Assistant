@@ -30,6 +30,24 @@ const normalizeUploadedFiles = (files) => {
   };
 };
 
+const resolveUserByEmail = async (email) => {
+  const normalizedEmail = typeof email === "string" ? email.trim() : "";
+
+  if (!normalizedEmail) {
+    throw httpError(400, "email is required");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail }
+  });
+
+  if (!user) {
+    throw httpError(404, "User not found");
+  }
+
+  return user;
+};
+
 const emitMeetingEvent = (meetingId, eventType, payload) => {
   const subscribers = meetingSubscribers.get(meetingId);
   if (!subscribers || !subscribers.size) {
@@ -448,12 +466,14 @@ export const deleteMeeting = async (id, companyId) => {
   await prisma.meeting.delete({ where: { id } });
 };
 
-export const addMeetingParticipant = async (meetingId, userId, companyId) => {
-  const [meeting, user] = await Promise.all([
+export const addMeetingParticipant = async (meetingId, email, companyId) => {
+  const targetUser = await resolveUserByEmail(email);
+
+  const [meeting, companyUser] = await Promise.all([
     prisma.meeting.findFirst({ where: { id: meetingId, company_id: companyId } }),
     prisma.user.findFirst({
       where: {
-        id: userId,
+        id: targetUser.id,
         companyMemberships: {
           some: { company_id: companyId }
         }
@@ -465,7 +485,7 @@ export const addMeetingParticipant = async (meetingId, userId, companyId) => {
     throw httpError(404, "Meeting not found");
   }
 
-  if (!user) {
+  if (!companyUser) {
     throw httpError(404, "User not found");
   }
 
@@ -473,13 +493,13 @@ export const addMeetingParticipant = async (meetingId, userId, companyId) => {
     where: {
       meeting_id_user_id: {
         meeting_id: meetingId,
-        user_id: userId
+        user_id: targetUser.id
       }
     },
     update: {},
     create: {
       meeting_id: meetingId,
-      user_id: userId
+      user_id: targetUser.id
     }
   });
 };

@@ -6,6 +6,24 @@ const assigneeSelection = {
   user_id: true
 };
 
+const resolveUserByEmail = async (email) => {
+  const normalizedEmail = typeof email === "string" ? email.trim() : "";
+
+  if (!normalizedEmail) {
+    throw httpError(400, "email is required");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail }
+  });
+
+  if (!user) {
+    throw httpError(404, "User not found");
+  }
+
+  return user;
+};
+
 export const createTask = async (companyId, { meeting_id, task_text, due_date, status }) => {
   if (!meeting_id || !task_text) {
     throw httpError(400, "meeting_id and task_text are required");
@@ -99,7 +117,9 @@ export const deleteTask = async (id, companyId) => {
   await prisma.task.delete({ where: { id } });
 };
 
-export const addTaskAssignee = async (taskId, userId, companyId) => {
+export const addTaskAssignee = async (taskId, email, companyId) => {
+  const targetUser = await resolveUserByEmail(email);
+
   const [task, user] = await Promise.all([
     prisma.task.findFirst({
       where: {
@@ -111,7 +131,7 @@ export const addTaskAssignee = async (taskId, userId, companyId) => {
     }),
     prisma.user.findFirst({
       where: {
-        id: userId,
+        id: targetUser.id,
         companyMemberships: {
           some: {
             company_id: companyId
@@ -133,13 +153,13 @@ export const addTaskAssignee = async (taskId, userId, companyId) => {
     where: {
       task_id_user_id: {
         task_id: taskId,
-        user_id: userId
+        user_id: targetUser.id
       }
     },
     update: {},
     create: {
       task_id: taskId,
-      user_id: userId
+      user_id: targetUser.id
     }
   });
 };
