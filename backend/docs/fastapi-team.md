@@ -24,6 +24,7 @@ The backend sends:
 - `meetingId`
 - `companyId`
 - `title`
+- `lang` (`en`, `ar`, `cs`)
 - `webmFile`
 - `wavFiles`
 
@@ -40,6 +41,7 @@ Expected fields:
 - `meetingId` - text or number
 - `companyId` - text or number
 - `title` - text
+- `lang` - required text: `en`, `ar`, or `cs`
 - `webmFile` - file
 - `wavFiles` - file array
 

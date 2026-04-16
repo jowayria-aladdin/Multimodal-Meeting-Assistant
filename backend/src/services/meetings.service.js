@@ -11,6 +11,7 @@ const participantSelection = {
 
 const FINAL_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELLED"]);
 const meetingSubscribers = new Map();
+const ALLOWED_UPLOAD_LANGUAGES = new Set(["en", "ar", "cs"]);
 
 const normalizeUploadedFiles = (files) => {
   const webmFile = files?.webmFile?.[0] || null;
@@ -28,6 +29,19 @@ const normalizeUploadedFiles = (files) => {
     webmPath: webmFile.path,
     wavPaths: wavFiles.map((file) => file.path)
   };
+};
+
+const normalizeUploadLanguage = (lang) => {
+  if (lang === undefined || lang === null || lang === "") {
+    throw httpError(400, "lang is required and must be one of: en, ar, cs");
+  }
+
+  const normalizedLang = String(lang).trim().toLowerCase();
+  if (!ALLOWED_UPLOAD_LANGUAGES.has(normalizedLang)) {
+    throw httpError(400, "lang must be one of: en, ar, cs");
+  }
+
+  return normalizedLang;
 };
 
 const resolveUserByEmail = async (email) => {
@@ -150,12 +164,14 @@ const updateMeetingStatus = async (meetingId, data, eventType) => {
   return updated;
 };
 
-const buildFastApiRequestBody = async (meeting) => {
+const buildFastApiRequestBody = async (meeting, lang) => {
   const formData = new FormData();
 
   formData.append("meetingId", String(meeting.id));
   formData.append("companyId", String(meeting.company_id));
   formData.append("title", meeting.title);
+
+  formData.append("lang", lang);
 
   if (meeting.source_webm_path) {
     const webmBytes = await fs.readFile(meeting.source_webm_path);
@@ -179,8 +195,8 @@ const buildFastApiRequestBody = async (meeting) => {
   return formData;
 };
 
-const sendMeetingToFastApi = async (meeting) => {
-  const formData = await buildFastApiRequestBody(meeting);
+const sendMeetingToFastApi = async (meeting, lang) => {
+  const formData = await buildFastApiRequestBody(meeting, lang);
 
   const response = await fetch(env.fastApiProcessUrl, {
     method: "POST",
@@ -196,7 +212,7 @@ const sendMeetingToFastApi = async (meeting) => {
   }
 };
 
-const startFastApiProcessing = async (meetingId) => {
+const startFastApiProcessing = async (meetingId, lang) => {
   const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
   if (!meeting) {
     throw httpError(404, "Meeting not found");
@@ -212,7 +228,7 @@ const startFastApiProcessing = async (meetingId) => {
   });
 
   try {
-    await sendMeetingToFastApi(meeting);
+    await sendMeetingToFastApi(meeting, lang);
 
     await updateMeetingStatus(meetingId, {
       processing_status: "PROCESSING",
@@ -252,6 +268,7 @@ export const createMeeting = async (companyId, { title, transcript, summary }) =
 
 export const createMeetingWithAudio = async (companyId, payload, files) => {
   const { title } = payload;
+  const lang = normalizeUploadLanguage(payload.lang);
 
   if (!title) {
     throw httpError(400, "title is required");
@@ -278,7 +295,7 @@ export const createMeetingWithAudio = async (companyId, payload, files) => {
 
   emitMeetingEvent(meeting.id, "meeting.uploaded", toSsePayload(meeting));
 
-  void startFastApiProcessing(meeting.id);
+  void startFastApiProcessing(meeting.id, lang);
 
   return meeting;
 };

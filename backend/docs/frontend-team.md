@@ -7,6 +7,7 @@ This document explains how the frontend should talk to the AI-NoteTaker backend 
 When creating a meeting from audio, the frontend must send:
 
 - `title` - required, user-defined meeting title
+- `lang` - required language code: `en`, `ar`, or `cs`
 - `webmFile` - required, one `.webm` audio file
 - `wavFiles` - required, one or more `.wav` files
 
@@ -26,12 +27,14 @@ Required headers:
 Form fields:
 
 - `title` - text
+- `lang` - text (`en`, `ar`, `cs`)
 - `webmFile` - file
 - `wavFiles` - file array
 
 Example form data:
 
 - `title = Sprint Review Audio`
+- `lang = en`
 - `webmFile = <recording.webm>`
 - `wavFiles = <chunk1.wav>`
 - `wavFiles = <chunk2.wav>`

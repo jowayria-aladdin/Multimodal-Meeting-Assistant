@@ -107,8 +107,7 @@ export const openApiSpec = {
         type: "object",
         properties: {
           id: { type: "integer", example: 1 },
-          name: { type: "string", example: "AI NoteTaker Inc" },
-          logo: { type: "string", nullable: true, example: "https://example.com/logo.png" }
+          name: { type: "string", example: "AI NoteTaker Inc" }
         }
       },
       CompanyMembership: {
@@ -312,8 +311,7 @@ export const openApiSpec = {
                 type: "object",
                 required: ["name"],
                 properties: {
-                  name: { type: "string", example: "My Company" },
-                  logo: { type: "string", example: "https://example.com/logo.png" }
+                  name: { type: "string", example: "My Company" }
                 }
               }
             }
@@ -361,8 +359,7 @@ export const openApiSpec = {
               schema: {
                 type: "object",
                 properties: {
-                  name: { type: "string", example: "Updated Company Name" },
-                  logo: { type: "string", nullable: true, example: "https://example.com/new-logo.png" }
+                  name: { type: "string", example: "Updated Company Name" }
                 }
               }
             }
@@ -534,9 +531,14 @@ export const openApiSpec = {
             "multipart/form-data": {
               schema: {
                 type: "object",
-                required: ["title", "webmFile", "wavFiles"],
+                required: ["title", "lang", "webmFile", "wavFiles"],
                 properties: {
                   title: { type: "string", example: "Sprint Review Audio" },
+                  lang: {
+                    type: "string",
+                    enum: ["en", "ar", "cs"],
+                    description: "Required language code passed to FastAPI"
+                  },
                   webmFile: { type: "string", format: "binary" },
                   wavFiles: {
                     type: "array",

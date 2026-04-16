@@ -25,7 +25,7 @@ const resolveUserByEmail = async (email) => {
   return user;
 };
 
-export const createCompany = async ({ name, logo }, creatorUserId) => {
+export const createCompany = async ({ name }, creatorUserId) => {
   if (!name) {
     throw httpError(400, "name is required");
   }
@@ -33,7 +33,6 @@ export const createCompany = async ({ name, logo }, creatorUserId) => {
   return prisma.company.create({
     data: {
       name,
-      logo,
       memberships: {
         create: {
           user_id: creatorUserId,
@@ -85,14 +84,13 @@ export const getCompanyById = async (id, userId) => {
   return company;
 };
 
-export const updateCompany = async (id, { name, logo }, userId) => {
+export const updateCompany = async (id, { name }, userId) => {
   await getCompanyById(id, userId);
 
   return prisma.company.update({
     where: { id },
     data: {
-      name,
-      logo
+      name
     }
   });
 };

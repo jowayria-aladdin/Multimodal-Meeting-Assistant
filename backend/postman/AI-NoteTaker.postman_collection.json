@@ -180,7 +180,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"My New Company\",\n  \"logo\": \"https://example.com/new-logo.png\"\n}"
+              "raw": "{\n  \"name\": \"My New Company\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/companies",
@@ -281,6 +281,11 @@
                 {
                   "key": "title",
                   "value": "Sprint Review Audio",
+                  "type": "text"
+                },
+                {
+                  "key": "lang",
+                  "value": "en",
                   "type": "text"
                 },
                 {

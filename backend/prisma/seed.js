@@ -36,8 +36,7 @@ async function main() {
 
   const company = await prisma.company.create({
     data: {
-      name: "AI NoteTaker Inc",
-      logo: "https://example.com/logo.png"
+      name: "AI NoteTaker Inc"
     }
   });
 

@@ -35,7 +35,6 @@ model User {
 model Company {
   id          Int                 @id @default(autoincrement())
   name        String
-  logo        String?
   memberships CompanyMembership[]
   meetings    Meeting[]
 }
