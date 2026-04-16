@@ -71,6 +71,32 @@ export const openApiSpec = {
           token: { type: "string", example: "eyJhbGciOiJI..." }
         }
       },
+      AuthMeResponse: {
+        type: "object",
+        properties: {
+          user: {
+            type: "object",
+            properties: {
+              id: { type: "integer", example: 1 },
+              username: { type: "string", example: "admin_user" },
+              email: { type: "string", format: "email", example: "admin@example.com" }
+            }
+          },
+          memberships: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                companyId: { type: "integer", example: 1 },
+                companyName: { type: "string", example: "AI NoteTaker Inc" },
+                role: { type: "string", example: "owner" }
+              }
+            }
+          },
+          activeCompanyId: { type: "integer", nullable: true, example: 1 },
+          activeRole: { type: "string", nullable: true, example: "owner" }
+        }
+      },
       Company: {
         type: "object",
         properties: {
@@ -175,6 +201,33 @@ export const openApiSpec = {
               }
             }
           }
+        }
+      }
+    },
+    "/api/auth/me": {
+      get: {
+        tags: ["Auth"],
+        summary: "Get current user profile with company memberships",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "X-Company-Id",
+            in: "header",
+            required: false,
+            schema: { type: "integer" },
+            description: "Optional active company selector for activeRole/activeCompanyId"
+          }
+        ],
+        responses: {
+          "200": {
+            description: "Profile returned",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/AuthMeResponse" }
+              }
+            }
+          },
+          "401": { description: "Invalid or missing token" }
         }
       }
     },
