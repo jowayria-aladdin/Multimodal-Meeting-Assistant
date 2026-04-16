@@ -88,7 +88,7 @@ export const getTaskById = async (id, companyId) => {
 export const updateTask = async (id, companyId, payload) => {
   await getTaskById(id, companyId);
 
-  if (payload.meeting_id) {
+  if (payload.meeting_id !== undefined) {
     const meeting = await prisma.meeting.findFirst({
       where: {
         id: payload.meeting_id,
@@ -101,14 +101,31 @@ export const updateTask = async (id, companyId, payload) => {
     }
   }
 
+  const data = {};
+
+  if (payload.meeting_id !== undefined) {
+    data.meeting_id = payload.meeting_id;
+  }
+
+  if (payload.task_text !== undefined) {
+    data.task_text = payload.task_text;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, "due_date")) {
+    data.due_date = payload.due_date ? new Date(payload.due_date) : null;
+  }
+
+  if (payload.status !== undefined) {
+    data.status = payload.status;
+  }
+
+  if (!Object.keys(data).length) {
+    throw httpError(400, "At least one field is required for update");
+  }
+
   return prisma.task.update({
     where: { id },
-    data: {
-      meeting_id: payload.meeting_id,
-      task_text: payload.task_text,
-      due_date: payload.due_date ? new Date(payload.due_date) : null,
-      status: payload.status
-    }
+    data
   });
 };
 

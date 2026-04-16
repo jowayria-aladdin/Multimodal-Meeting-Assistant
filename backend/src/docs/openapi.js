@@ -336,6 +336,20 @@ export const openApiSpec = {
             schema: { type: "integer" }
           }
         ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string", example: "Updated Company Name" },
+                  logo: { type: "string", nullable: true, example: "https://example.com/new-logo.png" }
+                }
+              }
+            }
+          }
+        },
         responses: {
           "200": { description: "Company updated" },
           "403": { description: "Admin role required" }
@@ -547,6 +561,21 @@ export const openApiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "integer" } }
         ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  title: { type: "string", example: "Updated meeting title" },
+                  transcript: { type: "string", nullable: true, example: "Updated transcript text" },
+                  summary: { type: "string", nullable: true, example: "Updated meeting summary" }
+                }
+              }
+            }
+          }
+        },
         responses: {
           "200": { description: "Meeting updated" }
         }
@@ -715,6 +744,22 @@ export const openApiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "integer" } }
         ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  meeting_id: { type: "integer", example: 1 },
+                  task_text: { type: "string", example: "Updated task text" },
+                  due_date: { type: "string", format: "date-time", nullable: true },
+                  status: { type: "string", enum: ["TODO", "IN_PROGRESS", "DONE"], example: "IN_PROGRESS" }
+                }
+              }
+            }
+          }
+        },
         responses: {
           "200": { description: "Task updated" }
         }
