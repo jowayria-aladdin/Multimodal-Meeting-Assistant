@@ -304,7 +304,7 @@
                   "src": ""
                 },
                 {
-                  "key": "wavFiles",
+                  "key": "wavFile",
                   "type": "file",
                   "src": ""
                 }

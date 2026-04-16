@@ -534,7 +534,7 @@ export const openApiSpec = {
     "/api/meetings/upload": {
       post: {
         tags: ["Meetings"],
-        summary: "Create meeting from sign-video + wav files and Cloudinary main video URL",
+        summary: "Create meeting from sign-video + single wav file and Cloudinary main video URL",
         security: [{ bearerAuth: [], tenantHeader: [] }],
         requestBody: {
           required: true,
@@ -542,7 +542,7 @@ export const openApiSpec = {
             "multipart/form-data": {
               schema: {
                 type: "object",
-                required: ["title", "lang", "mainVideoUrl", "signVideo", "wavFiles"],
+                required: ["title", "lang", "mainVideoUrl", "signVideo", "wavFile"],
                 properties: {
                   title: { type: "string", example: "Sprint Review Audio" },
                   lang: {
@@ -564,9 +564,10 @@ export const openApiSpec = {
                     format: "binary",
                     description: "Required sign-language video file (webm) sent to FastAPI"
                   },
-                  wavFiles: {
-                    type: "array",
-                    items: { type: "string", format: "binary" }
+                  wavFile: {
+                    type: "string",
+                    format: "binary",
+                    description: "Required wav file sent to FastAPI"
                   }
                 }
               }

@@ -31,13 +31,13 @@ const fileFilter = (req, file, cb) => {
     return;
   }
 
-  if (file.fieldname === "wavFiles") {
+  if (file.fieldname === "wavFile") {
     if (wavMimes.has(file.mimetype)) {
       cb(null, true);
       return;
     }
 
-    const error = new Error(`wavFiles entries must be wav. Received: ${file.mimetype}`);
+    const error = new Error(`wavFile must be wav. Received: ${file.mimetype}`);
     error.status = 400;
     cb(error);
     return;
@@ -53,9 +53,9 @@ export const uploadMeetingAudio = multer({
   fileFilter,
   limits: {
     fileSize: 50 * 1024 * 1024,
-    files: 11
+    files: 2
   }
 }).fields([
   { name: "signVideo", maxCount: 1 },
-  { name: "wavFiles", maxCount: 10 }
+  { name: "wavFile", maxCount: 1 }
 ]);

@@ -65,7 +65,7 @@ model Meeting {
   processing_completed_at DateTime?
   error_message        String?
   source_webm_path     String?
-  source_wav_paths     Json?
+  source_wav_path      String?
   created_at           DateTime              @default(now())
   company              Company               @relation(fields: [company_id], references: [id], onDelete: Cascade)
   meetingParticipants  MeetingParticipants[]

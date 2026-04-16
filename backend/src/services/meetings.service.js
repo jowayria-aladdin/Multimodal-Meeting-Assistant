@@ -16,19 +16,19 @@ const CLOUDINARY_HOST = "res.cloudinary.com";
 
 const normalizeUploadedFiles = (files) => {
   const signVideoFile = files?.signVideo?.[0] || null;
-  const wavFiles = files?.wavFiles || [];
+  const wavFile = files?.wavFile?.[0] || null;
 
   if (!signVideoFile) {
     throw httpError(400, "signVideo is required");
   }
 
-  if (!wavFiles.length) {
-    throw httpError(400, "At least one wavFiles entry is required");
+  if (!wavFile) {
+    throw httpError(400, "wavFile is required");
   }
 
   return {
     signVideoPath: signVideoFile.path,
-    wavPaths: wavFiles.map((file) => file.path)
+    wavPath: wavFile.path
   };
 };
 
@@ -133,14 +133,6 @@ const createEventType = (status) => {
   return "meeting.processing";
 };
 
-const safeJsonArray = (value) => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter((entry) => typeof entry === "string");
-};
-
 const cleanupPaths = async (pathsToDelete) => {
   await Promise.all(pathsToDelete.map(async (targetPath) => {
     try {
@@ -161,7 +153,7 @@ const cleanupMeetingSourceFiles = async (meetingId) => {
 
   const pathsToDelete = [
     ...(meeting.source_webm_path ? [meeting.source_webm_path] : []),
-    ...safeJsonArray(meeting.source_wav_paths)
+    ...(meeting.source_wav_path ? [meeting.source_wav_path] : [])
   ];
 
   if (pathsToDelete.length) {
@@ -172,7 +164,7 @@ const cleanupMeetingSourceFiles = async (meetingId) => {
     where: { id: meetingId },
     data: {
       source_webm_path: null,
-      source_wav_paths: null
+      source_wav_path: null
     }
   });
 };
@@ -210,13 +202,12 @@ const buildFastApiRequestBody = async (meeting, lang) => {
     );
   }
 
-  const wavPaths = safeJsonArray(meeting.source_wav_paths);
-  for (const wavPath of wavPaths) {
-    const wavBytes = await fs.readFile(wavPath);
+  if (meeting.source_wav_path) {
+    const wavBytes = await fs.readFile(meeting.source_wav_path);
     formData.append(
-      "wavFiles",
+      "wavFile",
       new Blob([wavBytes], { type: "audio/wav" }),
-      path.basename(wavPath)
+      path.basename(meeting.source_wav_path)
     );
   }
 
@@ -308,7 +299,7 @@ export const createMeetingWithAudio = async (companyId, payload, files) => {
     throw httpError(404, "Company not found");
   }
 
-  const { signVideoPath, wavPaths } = normalizeUploadedFiles(files);
+  const { signVideoPath, wavPath } = normalizeUploadedFiles(files);
 
   const meeting = await prisma.meeting.create({
     data: {
@@ -320,7 +311,7 @@ export const createMeetingWithAudio = async (companyId, payload, files) => {
       progress_percent: 0,
       status_message: "Audio uploaded",
       source_webm_path: signVideoPath,
-      source_wav_paths: wavPaths
+      source_wav_path: wavPath
     }
   });
 
@@ -379,7 +370,7 @@ export const getMeetingStatusById = async (id, companyId) => {
 export const reprocessMeeting = async (id, companyId) => {
   const meeting = await getMeetingById(id, companyId);
 
-  if (!meeting.source_webm_path || !Array.isArray(meeting.source_wav_paths) || !meeting.source_wav_paths.length) {
+  if (!meeting.source_webm_path || !meeting.source_wav_path) {
     throw httpError(400, "No source audio files found. Upload audio again before reprocessing.");
   }
 

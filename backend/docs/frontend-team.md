@@ -10,7 +10,7 @@ When creating a meeting from audio, the frontend must send:
 - `lang` - required language code: `en`, `ar`, or `cs`
 - `mainVideoUrl` - required Cloudinary playback URL for the main meeting video
 - `signVideo` - required sign-language `.webm` file
-- `wavFiles` - required, one or more `.wav` files
+- `wavFile` - required `.wav` file
 
 The frontend should not send `company_id` in the upload request. The backend derives the company from the authenticated user and the selected tenant context.
 
@@ -32,7 +32,7 @@ Form fields:
 - `mainVideoUrl` - text (Cloudinary URL)
 - `mainVideoPublicId` - optional text
 - `signVideo` - file (`webm`)
-- `wavFiles` - file array
+- `wavFile` - file (`wav`)
 
 Example form data:
 
@@ -41,8 +41,7 @@ Example form data:
 - `mainVideoUrl = https://res.cloudinary.com/<cloud>/video/upload/.../main_video.mp4`
 - `mainVideoPublicId = main_video_42` (optional)
 - `signVideo = <sign-video.webm>`
-- `wavFiles = <chunk1.wav>`
-- `wavFiles = <chunk2.wav>`
+- `wavFile = <audio.wav>`
 
 ## Main video handling
 
