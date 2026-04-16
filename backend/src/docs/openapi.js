@@ -132,6 +132,17 @@ export const openApiSpec = {
           id: { type: "integer", example: 1 },
           company_id: { type: "integer", example: 1 },
           title: { type: "string", example: "Weekly Sync" },
+          main_video_url: {
+            type: "string",
+            format: "uri",
+            nullable: true,
+            example: "https://res.cloudinary.com/demo/video/upload/v1713000000/main_video.mp4"
+          },
+          main_video_public_id: {
+            type: "string",
+            nullable: true,
+            example: "main_video_42"
+          },
           transcript: { type: "string", nullable: true, example: "https://example.com/transcript.txt" },
           summary: { type: "string", nullable: true, example: "Discussed blockers and next steps." },
           processing_status: {
@@ -523,7 +534,7 @@ export const openApiSpec = {
     "/api/meetings/upload": {
       post: {
         tags: ["Meetings"],
-        summary: "Create meeting from uploaded webm and wav files",
+        summary: "Create meeting from sign-video + wav files and Cloudinary main video URL",
         security: [{ bearerAuth: [], tenantHeader: [] }],
         requestBody: {
           required: true,
@@ -531,7 +542,7 @@ export const openApiSpec = {
             "multipart/form-data": {
               schema: {
                 type: "object",
-                required: ["title", "lang", "webmFile", "wavFiles"],
+                required: ["title", "lang", "mainVideoUrl", "signVideo", "wavFiles"],
                 properties: {
                   title: { type: "string", example: "Sprint Review Audio" },
                   lang: {
@@ -539,7 +550,20 @@ export const openApiSpec = {
                     enum: ["en", "ar", "cs"],
                     description: "Required language code passed to FastAPI"
                   },
-                  webmFile: { type: "string", format: "binary" },
+                  mainVideoUrl: {
+                    type: "string",
+                    format: "uri",
+                    description: "Required Cloudinary playback URL for the main meeting video"
+                  },
+                  mainVideoPublicId: {
+                    type: "string",
+                    description: "Optional Cloudinary public id for lifecycle operations"
+                  },
+                  signVideo: {
+                    type: "string",
+                    format: "binary",
+                    description: "Required sign-language video file (webm) sent to FastAPI"
+                  },
                   wavFiles: {
                     type: "array",
                     items: { type: "string", format: "binary" }
@@ -579,6 +603,8 @@ export const openApiSpec = {
                   id: 42,
                   company_id: 3,
                   title: "Sprint Planning - Week 12",
+                  main_video_url: "https://res.cloudinary.com/demo/video/upload/v1713000000/main_video.mp4",
+                  main_video_public_id: "main_video_42",
                   transcript: "SPEAKER_00 [00:00:01.120 - 00:00:06.840]: Good morning everyone, let's start with blockers.\nSPEAKER_01 [00:00:07.050 - 00:00:14.200]: Backend API for meeting upload is ready, I still need to finalize callback validation.\nSPEAKER_00 [00:00:14.410 - 00:00:20.030]: Great, please create tasks for docs and frontend integration.",
                   summary: "Team reviewed blockers, confirmed backend upload pipeline readiness, and assigned follow-up actions for docs and frontend integration.",
                   processing_status: "COMPLETED",

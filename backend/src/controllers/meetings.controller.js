@@ -46,7 +46,7 @@ export const deleteMeeting = asyncHandler(async (req, res) => {
 export const addMeetingParticipant = asyncHandler(async (req, res) => {
   const participant = await meetingsService.addMeetingParticipant(
     Number(req.params.id),
-    Number(req.body.user_id),
+    req.body.email,
     req.tenant.companyId
   );
 

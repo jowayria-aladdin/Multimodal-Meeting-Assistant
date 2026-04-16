@@ -54,6 +54,8 @@ model Meeting {
   id                   Int                   @id @default(autoincrement())
   company_id           Int
   title                String
+  main_video_url       String?
+  main_video_public_id String?
   transcript           String?
   summary              String?
   processing_status    MeetingProcessingStatus @default(UPLOADED)

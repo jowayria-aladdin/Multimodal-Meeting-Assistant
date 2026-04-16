@@ -8,7 +8,8 @@ When creating a meeting from audio, the frontend must send:
 
 - `title` - required, user-defined meeting title
 - `lang` - required language code: `en`, `ar`, or `cs`
-- `webmFile` - required, one `.webm` audio file
+- `mainVideoUrl` - required Cloudinary playback URL for the main meeting video
+- `signVideo` - required sign-language `.webm` file
 - `wavFiles` - required, one or more `.wav` files
 
 The frontend should not send `company_id` in the upload request. The backend derives the company from the authenticated user and the selected tenant context.
@@ -28,16 +29,27 @@ Form fields:
 
 - `title` - text
 - `lang` - text (`en`, `ar`, `cs`)
-- `webmFile` - file
+- `mainVideoUrl` - text (Cloudinary URL)
+- `mainVideoPublicId` - optional text
+- `signVideo` - file (`webm`)
 - `wavFiles` - file array
 
 Example form data:
 
 - `title = Sprint Review Audio`
 - `lang = en`
-- `webmFile = <recording.webm>`
+- `mainVideoUrl = https://res.cloudinary.com/<cloud>/video/upload/.../main_video.mp4`
+- `mainVideoPublicId = main_video_42` (optional)
+- `signVideo = <sign-video.webm>`
 - `wavFiles = <chunk1.wav>`
 - `wavFiles = <chunk2.wav>`
+
+## Main video handling
+
+1. Upload the main meeting video to Cloudinary first.
+2. Use the returned `secure_url` as `mainVideoUrl` when calling backend upload.
+3. The backend stores this URL and does not send the main video file to FastAPI.
+4. The UI should stream the saved Cloudinary URL directly.
 
 ## Expected frontend behavior
 

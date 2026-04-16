@@ -25,7 +25,7 @@ The backend sends:
 - `companyId`
 - `title`
 - `lang` (`en`, `ar`, `cs`)
-- `webmFile`
+- `signVideo` (`webm`)
 - `wavFiles`
 
 Headers sent by the backend:
@@ -42,8 +42,10 @@ Expected fields:
 - `companyId` - text or number
 - `title` - text
 - `lang` - required text: `en`, `ar`, or `cs`
-- `webmFile` - file
+- `signVideo` - file (`webm`)
 - `wavFiles` - file array
+
+The main meeting video is uploaded to Cloudinary by the client and stored by backend as URL metadata. FastAPI does not receive or process the main video file.
 
 ## What FastAPI should return
 

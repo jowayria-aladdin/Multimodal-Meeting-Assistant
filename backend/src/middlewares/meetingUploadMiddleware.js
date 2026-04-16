@@ -15,17 +15,37 @@ const storage = multer.diskStorage({
   }
 });
 
-const allowedMimes = new Set(["audio/webm", "audio/wav", "audio/wave", "audio/x-wav"]);
+const signVideoMimes = new Set(["video/webm", "audio/webm"]);
+const wavMimes = new Set(["audio/wav", "audio/wave", "audio/x-wav"]);
 
 const fileFilter = (req, file, cb) => {
-  if (!allowedMimes.has(file.mimetype)) {
-    const error = new Error(`Unsupported file type: ${file.mimetype}`);
+  if (file.fieldname === "signVideo") {
+    if (signVideoMimes.has(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+
+    const error = new Error(`signVideo must be webm. Received: ${file.mimetype}`);
     error.status = 400;
     cb(error);
     return;
   }
 
-  cb(null, true);
+  if (file.fieldname === "wavFiles") {
+    if (wavMimes.has(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+
+    const error = new Error(`wavFiles entries must be wav. Received: ${file.mimetype}`);
+    error.status = 400;
+    cb(error);
+    return;
+  }
+
+  const error = new Error(`Unsupported upload field: ${file.fieldname}`);
+  error.status = 400;
+  cb(error);
 };
 
 export const uploadMeetingAudio = multer({
@@ -33,9 +53,9 @@ export const uploadMeetingAudio = multer({
   fileFilter,
   limits: {
     fileSize: 50 * 1024 * 1024,
-    files: 12
+    files: 11
   }
 }).fields([
-  { name: "webmFile", maxCount: 1 },
+  { name: "signVideo", maxCount: 1 },
   { name: "wavFiles", maxCount: 10 }
 ]);

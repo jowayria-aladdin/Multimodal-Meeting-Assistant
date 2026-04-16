@@ -12,13 +12,14 @@ const participantSelection = {
 const FINAL_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELLED"]);
 const meetingSubscribers = new Map();
 const ALLOWED_UPLOAD_LANGUAGES = new Set(["en", "ar", "cs"]);
+const CLOUDINARY_HOST = "res.cloudinary.com";
 
 const normalizeUploadedFiles = (files) => {
-  const webmFile = files?.webmFile?.[0] || null;
+  const signVideoFile = files?.signVideo?.[0] || null;
   const wavFiles = files?.wavFiles || [];
 
-  if (!webmFile) {
-    throw httpError(400, "webmFile is required");
+  if (!signVideoFile) {
+    throw httpError(400, "signVideo is required");
   }
 
   if (!wavFiles.length) {
@@ -26,8 +27,35 @@ const normalizeUploadedFiles = (files) => {
   }
 
   return {
-    webmPath: webmFile.path,
+    signVideoPath: signVideoFile.path,
     wavPaths: wavFiles.map((file) => file.path)
+  };
+};
+
+const normalizeMainVideoMetadata = (payload) => {
+  const mainVideoUrl = typeof payload.mainVideoUrl === "string" ? payload.mainVideoUrl.trim() : "";
+  if (!mainVideoUrl) {
+    throw httpError(400, "mainVideoUrl is required");
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(mainVideoUrl);
+  } catch {
+    throw httpError(400, "mainVideoUrl must be a valid URL");
+  }
+
+  if (!parsedUrl.hostname.includes(CLOUDINARY_HOST)) {
+    throw httpError(400, "mainVideoUrl must be a Cloudinary delivery URL");
+  }
+
+  const mainVideoPublicId = typeof payload.mainVideoPublicId === "string" && payload.mainVideoPublicId.trim()
+    ? payload.mainVideoPublicId.trim()
+    : null;
+
+  return {
+    mainVideoUrl,
+    mainVideoPublicId
   };
 };
 
@@ -174,10 +202,10 @@ const buildFastApiRequestBody = async (meeting, lang) => {
   formData.append("lang", lang);
 
   if (meeting.source_webm_path) {
-    const webmBytes = await fs.readFile(meeting.source_webm_path);
+    const signVideoBytes = await fs.readFile(meeting.source_webm_path);
     formData.append(
-      "webmFile",
-      new Blob([webmBytes], { type: "audio/webm" }),
+      "signVideo",
+      new Blob([signVideoBytes], { type: "video/webm" }),
       path.basename(meeting.source_webm_path)
     );
   }
@@ -269,6 +297,7 @@ export const createMeeting = async (companyId, { title, transcript, summary }) =
 export const createMeetingWithAudio = async (companyId, payload, files) => {
   const { title } = payload;
   const lang = normalizeUploadLanguage(payload.lang);
+  const { mainVideoUrl, mainVideoPublicId } = normalizeMainVideoMetadata(payload);
 
   if (!title) {
     throw httpError(400, "title is required");
@@ -279,16 +308,18 @@ export const createMeetingWithAudio = async (companyId, payload, files) => {
     throw httpError(404, "Company not found");
   }
 
-  const { webmPath, wavPaths } = normalizeUploadedFiles(files);
+  const { signVideoPath, wavPaths } = normalizeUploadedFiles(files);
 
   const meeting = await prisma.meeting.create({
     data: {
       company_id: companyId,
       title,
+      main_video_url: mainVideoUrl,
+      main_video_public_id: mainVideoPublicId,
       processing_status: "UPLOADED",
       progress_percent: 0,
       status_message: "Audio uploaded",
-      source_webm_path: webmPath,
+      source_webm_path: signVideoPath,
       source_wav_paths: wavPaths
     }
   });

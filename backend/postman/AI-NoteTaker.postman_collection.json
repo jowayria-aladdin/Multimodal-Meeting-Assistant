@@ -289,7 +289,17 @@
                   "type": "text"
                 },
                 {
-                  "key": "webmFile",
+                  "key": "mainVideoUrl",
+                  "value": "https://res.cloudinary.com/demo/video/upload/v1713000000/main_video.mp4",
+                  "type": "text"
+                },
+                {
+                  "key": "mainVideoPublicId",
+                  "value": "main_video_42",
+                  "type": "text"
+                },
+                {
+                  "key": "signVideo",
                   "type": "file",
                   "src": ""
                 },
