@@ -4,8 +4,14 @@ import { env } from "./config/env.js";
 import { apiRouter } from "./routes/index.js";
 import { errorHandler, notFoundHandler } from "./middlewares/errorHandler.js";
 import { openApiSpec } from "./docs/openapi.js";
+import cors from "cors"; // cors import
 
 const app = express();
+// must be before routes to allow CORS for all endpoints, including /docs
+app.use(cors({
+  origin: "http://localhost:3001", //  match frontend's origin
+  credentials: true
+}));
 
 app.use(express.json());
 
