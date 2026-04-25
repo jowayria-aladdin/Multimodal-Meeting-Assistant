@@ -105,7 +105,7 @@ def run_asr_pipeline(
     # =========================
     # Load ENV
     # =========================
-    load_dotenv("../.env", override=True)
+    load_dotenv(override=True)
     token = os.getenv("PYANNOTE_API_KEY")
 
     if not token:

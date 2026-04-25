@@ -1,0 +1,40 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libsndfile1 \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN python -m pip install --upgrade pip
+
+# Install CPU PyTorch (IMPORTANT: no +cu128)
+RUN pip install --no-cache-dir \
+    torch==2.8.0 \
+    torchaudio==2.8.0
+
+# Install rest of dependencies
+RUN pip install --no-cache-dir \
+    fastapi==0.135.3 \
+    uvicorn==0.42.0 \
+    python-multipart==0.0.9 \
+    python-dotenv==1.2.2 \
+    transformers==4.57.6 \
+    accelerate==1.13.0 \
+    pyannote.audio==4.0.4 \
+    ffmpeg-python==0.2.0 \
+    soundfile==0.12.1 \
+    sentencepiece==0.2.1
+
+# Copy app files
+COPY asr_server.py .
+COPY asr_runner.py .
+COPY media_utils.py .
+
+EXPOSE 5002
+
+CMD ["uvicorn", "asr_server:app", "--host", "0.0.0.0", "--port", "5002"]

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 # Config
 # ----------------------------
 
-load_dotenv("../.env", override=True)
+load_dotenv(override=True)
 
 # LLM Modes:
 # - gemini : use Gemini only
@@ -101,16 +101,19 @@ def build_output_language_instruction(language: str) -> str:
 
     if language == "en":
         return ("Write all output in English only. Keep names unchanged."
-                "Do NOT introduce any new language (no Chinese or unrelated languages)."
+                "Do NOT introduce any new languages or weird unicode characters (no Chinese or unrelated languages)."
                 )
 
     if language == "ar":
         return ("اكتب كل النتايج بالعربي باللهجة المصرية بس و حافظ على الأسماء زي ما هي."
-                "لا تكتب أي لغة تانية (ممنوع تكتب إنجليزي أو صيني أو أي لغة غير مرتبطة).")
+                "لا تكتب أي لغة تانية أو أي حروف غريبة (ممنوع تكتب إنجليزي أو صيني أو أي لغة غير مرتبطة).")
 
-    return ("Write the output in mixed Egyptian Arabic and English, matching the transcript style. Keep names and technical terms unchanged."
-            "Do NOT introduce any new language (no Chinese or unrelated languages)."
-            )
+    return (
+        "Write the output in mixed Egyptian Arabic and English, matching the transcript style. "
+        "Keep names and technical terms unchanged. "
+        "STRICTLY use only Arabic letters (أ-ي), English letters (A-Z, a-z), numbers, and basic punctuation. "
+        "Do NOT output any other Unicode characters or symbols (no Chinese, Japanese, or weird symbols). "
+    )
 
 
 def apply_name_mappings_to_tasks(tasks: TasksOutput, names: NameRecognitionOutput) -> TasksOutput:
@@ -162,6 +165,7 @@ Rules:
 - Make it as a paragraph and keep it short and focused on key points.
 - Focus on the main topic, key findings, problems, decisions, and next steps.
 - Do not copy long phrases from the transcript.
+- If any invalid or foreign character appears, regenerate the output correctly.
 
 Required JSON format:
 {{

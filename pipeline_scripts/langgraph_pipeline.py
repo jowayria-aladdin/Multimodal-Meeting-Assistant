@@ -1,6 +1,7 @@
 from typing import TypedDict, Optional
 import json
 import os
+import httpx
 from langgraph.graph import StateGraph, START, END
 
 # =========================
@@ -31,69 +32,70 @@ class PipelineState(TypedDict, total=False):
 # NODES
 # =========================
 
-# 1) ASR
 def run_asr_node(state):
-    from asr_runner import run_asr_pipeline
-    from media_utils import convert_webm_to_wav
+    ASR_API_URL = os.getenv("ASR_API_URL")
 
-    input_audio = state["audio_path"]
+    with open(state["audio_path"], "rb") as f:
+        response = httpx.post(
+            ASR_API_URL,
+            files={"audio": f},
+            data={"language": state["language"]},
+            timeout=None
+        )
 
-    wav_audio = "./uploads/audio_converted.wav"
-
-    print("[ASR] Converting input → WAV...")
-    convert_webm_to_wav(input_audio, wav_audio)
+    response.raise_for_status()
 
     output = "./raw_output/audio_raw.json"
+    os.makedirs("./raw_output", exist_ok=True)
 
-    run_asr_pipeline(
-        audio_path=wav_audio,
-        output_path=output,
-        lang=state["language"]
-    )
+    with open(output, "w", encoding="utf-8") as out:
+        json.dump(response.json()["segments"], out, indent=4)
 
     return {"audio_json": output}
 
-# 2) SIGN LANGUAGE (TEMP DUMMY)
-def run_sign_node(state: PipelineState):
+
+def run_sign_node(state):
+    SIGN_API_URL = os.getenv("SIGN_API_URL")
+
+    with open(state["webcam_path"], "rb") as f:
+        response = httpx.post(
+            SIGN_API_URL,
+            files={"video": f},
+            timeout=None
+        )
+
+    response.raise_for_status()
+
     output = "./raw_output/video_raw.json"
-
-    dummy = [
-        {
-            "speaker": "SIGN_00",
-            "start": 1.0,
-            "end": 3.0,
-            "text": "dummy sign language output"
-        }
-    ]
-
     os.makedirs("./raw_output", exist_ok=True)
-    with open(output, "w", encoding="utf-8") as f:
-        json.dump(dummy, f, indent=4)
+
+    with open(output, "w", encoding="utf-8") as out:
+        json.dump([{
+            "speaker": "SIGN_00",
+            "start": 0,
+            "end": 0,
+            "text": response.json()["sign"]
+        }], out, indent=4)
 
     return {"video_json": output}
 
-# 3) VALIDATE AUDIO
-def validate_audio_node(state: PipelineState):
-    from pydantic_validation import validate_json_file
 
+def validate_audio_node(state):
+    from pipeline_scripts.pydantic_validation import validate_json_file
     output = "./validated_output/validated_audio.json"
     validate_json_file(state["audio_json"], output)
-
     return {"validated_audio_json": output}
 
-# 4) VALIDATE VIDEO
-def validate_video_node(state: PipelineState):
-    from pydantic_validation import validate_json_file
 
+def validate_video_node(state):
+    from pipeline_scripts.pydantic_validation import validate_json_file
     output = "./validated_output/validated_video.json"
     validate_json_file(state["video_json"], output)
-
     return {"validated_video_json": output}
 
-# 5) MERGE
-def merge_node(state: PipelineState):
-    from merge_JSON import merge_jsons
 
+def merge_node(state):
+    from pipeline_scripts.merge_JSON import merge_jsons
     output = "./validated_output/merged.json"
 
     merge_jsons(
@@ -104,20 +106,17 @@ def merge_node(state: PipelineState):
 
     return {"merged_json": output}
 
-# 6) VALIDATE MERGED
-def validate_merged_node(state: PipelineState):
-    from pydantic_validation_merged import validate_merged_json_file
 
+def validate_merged_node(state):
+    from pipeline_scripts.pydantic_validation_merged import validate_merged_json_file
     output = "./validated_output/validated_merged.json"
 
     validate_merged_json_file(state["merged_json"], output)
-
     return {"validated_merged_json": output}
 
-# 7) SIMPLIFY
-def simplify_node(state: PipelineState):
-    from simplify_json import simplify_json
 
+def simplify_node(state):
+    from pipeline_scripts.simplify_json import simplify_json
     output = "./llm_input/llm_input.json"
 
     simplify_json(
@@ -127,12 +126,11 @@ def simplify_node(state: PipelineState):
 
     return {"llm_input_json": output}
 
-# 8) LLM
-def llm_node(state: PipelineState):
-    from llm_pipeline import run_llm_pipeline
+
+def llm_node(state):
+    from pipeline_scripts.llm_pipeline import run_llm_pipeline
 
     os.makedirs("./llm_output", exist_ok=True)
-
     output = "./llm_output/llm_results.json"
 
     run_llm_pipeline(
@@ -141,12 +139,10 @@ def llm_node(state: PipelineState):
         language=state["language"]
     )
 
-    return {
-        "llm_output_path": output
-    }
+    return {"llm_output_path": output}
 
-# 9) FINAL OUTPUT
-def final_node(state: PipelineState):
+
+def final_node(state):
     with open(state["llm_output_path"], "r", encoding="utf-8") as f:
         llm_output = json.load(f)
 
@@ -172,6 +168,11 @@ def final_node(state: PipelineState):
 # =========================
 
 def build_graph():
+    os.makedirs("./raw_output", exist_ok=True)
+    os.makedirs("./validated_output", exist_ok=True)
+    os.makedirs("./llm_input", exist_ok=True)
+    os.makedirs("./llm_output", exist_ok=True)
+
     graph = StateGraph(PipelineState)
 
     graph.add_node("asr", run_asr_node)
@@ -184,20 +185,14 @@ def build_graph():
     graph.add_node("llm", llm_node)
     graph.add_node("final", final_node)
 
-    # fan-out
     graph.add_edge(START, "asr")
     graph.add_edge(START, "sign")
 
-    # branch 1
     graph.add_edge("asr", "validate_audio")
-
-    # branch 2
     graph.add_edge("sign", "validate_video")
 
-    # fan-in
     graph.add_edge(["validate_audio", "validate_video"], "merge")
 
-    # continue normally
     graph.add_edge("merge", "validate_merged")
     graph.add_edge("validate_merged", "simplify")
     graph.add_edge("simplify", "llm")
@@ -205,22 +200,3 @@ def build_graph():
     graph.add_edge("final", END)
 
     return graph.compile()
-
-if __name__ == "__main__":
-    app = build_graph()
-
-    result = app.invoke({
-        "audio_path": "./uploads/audio.wav",
-        "webcam_path": "./uploads/webcam.webm",
-        "screen_path": "./uploads/screen.webm",
-        "language": "mix"
-    })
-
-    os.makedirs("./final_output", exist_ok=True)
-
-    output_path = "./final_output/final_output.json"
-    print("\n===== FINAL OUTPUT =====")
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(result["final_output"], f, indent=4, ensure_ascii=False)
-
-    print(f"\n[FINAL] Saved to: {output_path}")

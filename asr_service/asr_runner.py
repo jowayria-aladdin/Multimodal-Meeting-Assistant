@@ -1,19 +1,17 @@
 import os
 import json
 import shutil
+from pathlib import Path
+
 import ffmpeg
 import torch
 import torchaudio
-from pathlib import Path
 from pyannote.audio import Pipeline
 from transformers import pipeline
 from dotenv import load_dotenv
 
 
-# =========================
-# Language Config
-# =========================
-LANGUAGE_PROMPTS = { 
+LANGUAGE_PROMPTS = {
     "en": "Transcribe the speech exactly as spoken in English only.",
     "ar": "Transcribe the speech exactly as spoken in Arabic with Egyptian Dialect only.",
     "mix": "Transcribe the speech exactly as spoken, preserving Arabic-English code-switching."
@@ -24,9 +22,8 @@ MODEL_LANGUAGE = {
     "ar": "arabic",
     "mix": ""
 }
-# =========================
-# Helpers
-# =========================
+
+
 def clean_segments(raw_segments, gap_threshold=0.5, min_duration=0.4):
     merged = []
 
@@ -47,15 +44,32 @@ def clean_segments(raw_segments, gap_threshold=0.5, min_duration=0.4):
 
 
 def cut_segments(audio_path, segments, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
     for i, seg in enumerate(segments):
+        if seg["end"] <= seg["start"]:
+            print(f"[ASR] Skipping invalid segment: {seg}")
+            continue
+
+        duration = seg["end"] - seg["start"]
         out_path = os.path.join(out_dir, f"seg_{i}_{seg['speaker']}.wav")
-        (
-            ffmpeg
-            .input(audio_path, ss=seg["start"], to=seg["end"])
-            .output(out_path, ac=1, ar=16000)
-            .overwrite_output()
-            .run(quiet=True)
-        )
+        print(f"[ASR] Cutting segment {i + 1}/{len(segments)}: {seg['start']:.3f} -> {seg['end']:.3f}")
+
+        try:
+            (
+                ffmpeg
+                .input(audio_path, ss=seg["start"], t=duration)
+                .output(out_path, ac=1, ar=16000)
+                .overwrite_output()
+                .run(capture_stdout=True, capture_stderr=True)
+            )
+        except ffmpeg.Error as e:
+            print("[ASR] ffmpeg stdout:")
+            print(e.stdout.decode("utf-8", errors="ignore") if e.stdout else "")
+            print("[ASR] ffmpeg stderr:")
+            print(e.stderr.decode("utf-8", errors="ignore") if e.stderr else "")
+            raise
+
         seg["audio_path"] = out_path
 
 
@@ -72,58 +86,84 @@ def prepare_audio(audio_path):
     return waveform.squeeze().numpy()
 
 
-# =========================
-# MAIN FUNCTION
-# =========================
+def load_asr_resources():
+    load_dotenv(override=True)
+
+    pyannote_api_key = os.getenv("PYANNOTE_API_KEY")
+    if not pyannote_api_key:
+        raise RuntimeError("Missing PYANNOTE_API_KEY")
+
+    has_cuda = torch.cuda.is_available()
+    hf_device = 0 if has_cuda else -1
+    model_dtype = torch.float16 if has_cuda else torch.float32
+    device_name = "cuda" if has_cuda else "cpu"
+
+    print(f"[ASR] Using device: {device_name}")
+    print("[ASR] Loading diarization model...")
+
+    diarization_pipeline = Pipeline.from_pretrained(
+        "pyannote/speaker-diarization-precision-2",
+        token=pyannote_api_key,
+    )
+
+    print("[ASR] Loading ASR model...")
+
+    asr_pipeline = pipeline(
+        "automatic-speech-recognition",
+        model="MohamedRashad/Arabic-Whisper-CodeSwitching-Edition",
+        dtype=model_dtype,
+        device=hf_device,
+        return_timestamps=True,
+    )
+
+    return {
+        "diarization_pipeline": diarization_pipeline,
+        "asr_pipeline": asr_pipeline,
+        "torch_device": device_name,
+    }
+
+
 def run_asr_pipeline(
     audio_path: str,
     output_path: str,
     lang: str,
+    resources: dict,
     segments_dir: str = "segments",
     cleanup_segments: bool = True
 ):
-    # Validate language
     if lang not in LANGUAGE_PROMPTS:
         raise ValueError(f"Invalid language: {lang}. Must be one of {list(LANGUAGE_PROMPTS.keys())}")
 
-    PROMPT = LANGUAGE_PROMPTS[lang]
-    LANGUAGE = MODEL_LANGUAGE[lang]
+    prompt = LANGUAGE_PROMPTS[lang]
+    language = MODEL_LANGUAGE[lang]
+
+    diarization_pipeline = resources["diarization_pipeline"]
+    asr_pipeline = resources["asr_pipeline"]
+    torch_device = resources["torch_device"]
 
     print(f"[ASR] Language: {lang}")
-    print(f"[ASR] Prompt: {PROMPT}")
+    print(f"[ASR] Prompt: {prompt}")
+    print(f"[ASR] Using cached models on: {torch_device}")
 
-    # Setup dirs
     Path(segments_dir).mkdir(parents=True, exist_ok=True)
-    Path(os.path.dirname(output_path)).mkdir(parents=True, exist_ok=True)
 
-    # Load env
-    load_dotenv("../.env", override=True)
-    PYANNOTE_API_KEY = os.getenv("PYANNOTE_API_KEY")
-    if not PYANNOTE_API_KEY:
-        raise RuntimeError("Missing PYANNOTE_API_KEY")
-
-    # Device setup
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-
-    print(f"[ASR] Using device: {device}")
-
-    # =========================
-    # 1) Diarization
-    # =========================
-    print("[ASR] Loading diarization model...")
-    pipeline_diarization = Pipeline.from_pretrained(
-        "pyannote/speaker-diarization-precision-2",
-        token=PYANNOTE_API_KEY,
-    )
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     print("[ASR] Running diarization...")
     waveform, sample_rate = torchaudio.load(audio_path)
 
-    diarization = pipeline_diarization({
-        "waveform": waveform,
-        "sample_rate": sample_rate,
-    })
+    try:
+        diarization = diarization_pipeline({
+            "waveform": waveform,
+            "sample_rate": sample_rate,
+        })
+    except Exception as e:
+        import traceback
+        print("[ASR] Diarization failed:")
+        traceback.print_exc()
+        raise
 
     segments = []
     for turn, speaker in diarization.speaker_diarization:
@@ -138,23 +178,17 @@ def run_asr_pipeline(
     segments = clean_segments(segments)
     print(f"[ASR] Cleaned segments: {len(segments)}")
 
-    # Cut segments
+    print("[ASR] Segments before cutting:")
+    for seg in segments:
+        print(seg)
+
     cut_segments(audio_path, segments, segments_dir)
 
-    # =========================
-    # 2) ASR
-    # =========================
-    print("[ASR] Loading ASR model...")
-    asr = pipeline(
-        "automatic-speech-recognition",
-        model="MohamedRashad/Arabic-Whisper-CodeSwitching-Edition",
-        torch_dtype=torch_dtype,
-        device=device,
-        return_timestamps=True,
-    )
+    tokenizer = asr_pipeline.tokenizer
+    prompt_ids = tokenizer.get_prompt_ids(prompt, return_tensors="pt")
 
-    tokenizer = asr.tokenizer
-    prompt_ids = tokenizer.get_prompt_ids(PROMPT, return_tensors="pt").to(device)
+    if torch_device == "cuda":
+        prompt_ids = prompt_ids.to("cuda")
 
     generate_kwargs = {
         "temperature": 0,
@@ -163,17 +197,22 @@ def run_asr_pipeline(
         "prompt_ids": prompt_ids,
     }
 
-    if LANGUAGE:
-        generate_kwargs["language"] = LANGUAGE
+    if language:
+        generate_kwargs["language"] = language
 
     print("[ASR] Running transcription...")
 
     diarized_transcript = []
 
-    for seg in segments:
+    for i, seg in enumerate(segments, start=1):
+        if "audio_path" not in seg:
+            print(f"[ASR] Skipping segment with no audio file: {seg}")
+            continue
+
+        print(f"[ASR] Transcribing segment {i}/{len(segments)}...")
         audio_array = prepare_audio(seg["audio_path"])
 
-        result = asr(
+        result = asr_pipeline(
             audio_array,
             generate_kwargs=generate_kwargs,
         )
@@ -185,13 +224,11 @@ def run_asr_pipeline(
             "text": result["text"].strip(),
         })
 
-    # Save
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(diarized_transcript, f, indent=4, ensure_ascii=False)
 
     print(f"[ASR] Saved: {output_path}")
 
-    # Cleanup
     if cleanup_segments and os.path.exists(segments_dir):
         shutil.rmtree(segments_dir)
         print("[ASR] Segments cleaned up")
