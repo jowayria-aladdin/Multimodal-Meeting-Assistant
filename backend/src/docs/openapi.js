@@ -123,7 +123,8 @@ export const openApiSpec = {
         properties: {
           id: { type: "integer", example: 1 },
           username: { type: "string", example: "admin_user" },
-          email: { type: "string", format: "email", example: "admin@example.com" }
+          email: { type: "string", format: "email", example: "admin@example.com" },
+          role: { type: "string", example: "admin" }
         }
       },
       Meeting: {
@@ -440,6 +441,46 @@ export const openApiSpec = {
       }
     },
     "/api/companies/{id}/memberships/{userId}": {
+      patch: {
+        tags: ["Companies"],
+        summary: "Update company member role (admin only)",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } },
+          { name: "userId", in: "path", required: true, schema: { type: "integer" } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["role"],
+                properties: {
+                  role: {
+                    type: "string",
+                    enum: ["admin", "member"],
+                    example: "admin"
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          "200": {
+            description: "Membership role updated",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/CompanyMembership" }
+              }
+            }
+          },
+          "400": { description: "Invalid role" },
+          "403": { description: "Admin role required" },
+          "404": { description: "Membership not found" }
+        }
+      },
       delete: {
         tags: ["Companies"],
         summary: "Remove company member (admin only)",

@@ -5,6 +5,7 @@ import {
   deleteCompany,
   getCompanyById,
   listCompanies,
+  updateMembershipRole,
   removeMembership,
   updateCompany
 } from "../controllers/companies.controller.js";
@@ -22,6 +23,7 @@ router.patch("/:id", requireTenantAdminFromCompanyParam, updateCompany);
 router.delete("/:id", requireTenantAdminFromCompanyParam, deleteCompany);
 
 router.post("/:id/memberships", requireTenantAdminFromCompanyParam, addMembership);
+router.patch("/:id/memberships/:userId", requireTenantAdminFromCompanyParam, updateMembershipRole);
 router.delete("/:id/memberships/:userId", requireTenantAdminFromCompanyParam, removeMembership);
 
 export default router;

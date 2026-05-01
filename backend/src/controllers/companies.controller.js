@@ -35,6 +35,15 @@ export const addMembership = asyncHandler(async (req, res) => {
   res.status(201).json(membership);
 });
 
+export const updateMembershipRole = asyncHandler(async (req, res) => {
+  const membership = await companiesService.updateMembershipRole(
+    Number(req.params.id),
+    Number(req.params.userId),
+    req.body
+  );
+  res.status(200).json(membership);
+});
+
 export const removeMembership = asyncHandler(async (req, res) => {
   await companiesService.removeMembership(Number(req.params.id), Number(req.params.userId));
   res.status(204).send();

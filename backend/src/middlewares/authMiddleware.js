@@ -4,11 +4,16 @@ import { env } from "../config/env.js";
 export const requireAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Missing or invalid authorization header" });
+  let token = null;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.slice(7);
+  } else if (req.query && req.query.token) {
+    token = req.query.token;
   }
 
-  const token = authHeader.slice(7);
+  if (!token) {
+    return res.status(401).json({ message: "Missing or invalid authorization header or token" });
+  }
 
   try {
     const payload = jwt.verify(token, env.jwtSecret);
