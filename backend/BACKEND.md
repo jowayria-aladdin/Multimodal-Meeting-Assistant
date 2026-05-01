@@ -1858,7 +1858,19 @@ npm run test:feature # Runs 4 feature tests
 
 ## Version & Changelog
 
-**Current Version**: 1.1.0
+**Current Version**: 1.1.1
+
+### v1.1.1 (May 2026)
+
+#### Features
+- ✅ Add PATCH `/api/companies/:id/memberships/:userId` to update member roles (admin/member only); owner promotion is disallowed via this endpoint.
+- ✅ Return tenant-scoped `role` in `GET /api/users` and `GET /api/users/:id` responses to surface user roles in the UI.
+- ✅ Accept JWT token via query string (`?token=...`) as a fallback for SSE/EventSource connections to support browser SSE constraints.
+
+#### Improvements
+- ✅ Enforced strict role validation for membership updates (`admin`, `member`).
+- ✅ Updated OpenAPI spec to v1.1.1 with documentation for membership patch and user role field.
+- ✅ Added unit tests covering companies service role updates, users service role mapping, and auth middleware token fallback.
 
 ### v1.1.0 (April 2026)
 

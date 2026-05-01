@@ -2,7 +2,7 @@ export const openApiSpec = {
   openapi: "3.0.3",
   info: {
     title: "AI-NoteTaker Backend API",
-    version: "1.0.0",
+    version: "1.1.1",
     description: "API documentation for auth, company tenancy, meetings, and tasks."
   },
   servers: [
