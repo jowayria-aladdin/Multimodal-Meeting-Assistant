@@ -1,33 +1,45 @@
 {
-  "name": "LughaCap",
-  "version": "3.1",
-  "manifest_version": 3,
-  "icons": {                    
-      "16": "logo.png",
-      "48": "logo.png",
-      "128": "logo.png"
-  },
-  "permissions": [
-    "tabCapture", 
-    "offscreen", 
-    "scripting", 
-    "downloads",
-    "storage"  
-  ],
-  "content_scripts": [
-    {
-      "matches": ["http://localhost:3000/*"],
-      "js": ["content.js"]
+    "name": "LughaCap",
+    "version": "3.1",
+    "manifest_version": 3,
+    "icons": {
+        "16": "logo.png",
+        "48": "logo.png",
+        "128": "logo.png"
+    },
+    "permissions": [
+        "tabCapture",
+        "offscreen",
+        "scripting",
+        "downloads",
+        "storage"
+    ],
+    "content_scripts": [
+        {
+            "matches": [ "http://localhost:3000/*" ],
+            "js": [ "content.js" ]
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "ffmpeg-core/ffmpeg-core.js",
+                "ffmpeg-core/ffmpeg-core.wasm"
+            ],
+            "matches": [ "<all_urls>" ]
+        }
+    ],
+    "content_security_policy": {
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+    },
+    "action": {
+        "default_title": "Click to Record"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "options_ui": {
+        "page": "setup.html",
+        "open_in_tab": true
     }
-  ],
-  "action": {
-    "default_title": "Click to Record"
-  },
-  "background": {
-    "service_worker": "background.js"
-  },
-  "options_ui": {
-    "page": "setup.html",
-    "open_in_tab": true
-  }
 }

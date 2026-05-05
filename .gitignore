@@ -1,0 +1,5 @@
+node_modules/
+.vs/
+ffmpeg-core/
+*.wasm
+package-lock.json

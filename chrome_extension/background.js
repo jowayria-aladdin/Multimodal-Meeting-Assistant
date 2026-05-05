@@ -123,8 +123,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   //download handler receives the URLs from offscreen.js
   if (msg.type === 'DOWNLOAD') {
     const timestamp = Math.floor(Date.now() / 1000);
-    const filename = `meeting_${timestamp}_${msg.fileType}.webm`;
-//triggers the Chrome download manager. 
+    const ext = msg.ext || 'webm';
+    const filename = `meeting_${timestamp}_${msg.fileType}.${ext}`;
+//triggers the Chrome download manager.
     chrome.downloads.download({
       url: msg.url,
       filename: filename,

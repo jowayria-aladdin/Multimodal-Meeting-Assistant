@@ -5,6 +5,40 @@
  it performs realtime audio mixing to ensure the meeting audio and the user's voice are both clear for the RAG system.
  */
 
+import { FFmpeg } from './node_modules/@ffmpeg/ffmpeg/dist/esm/index.js';
+import { fetchFile } from './node_modules/@ffmpeg/util/dist/esm/index.js';
+
+const ffmpeg = new FFmpeg();
+let ffmpegLoaded = false;
+
+async function ensureFFmpegLoaded() {
+    if (ffmpegLoaded) return;
+
+    ffmpeg.on('log', ({ message }) => {
+        console.log('[FFmpeg]', message);
+    });
+
+    const coreURL = chrome.runtime.getURL('ffmpeg-core/ffmpeg-core.js');
+    const wasmURL = chrome.runtime.getURL('ffmpeg-core/ffmpeg-core.wasm');
+
+    await ffmpeg.load({
+        coreURL,
+        wasmURL
+    });
+
+    ffmpegLoaded = true;
+    console.log('FFmpeg loaded successfully.');
+}
+
+(async () => {
+    try {
+        await ensureFFmpegLoaded();
+    } catch (err) {
+        console.error('FFmpeg failed to load:', err);
+    }
+})();
+
+
 console.log(" Modular Recorder Loaded (Speaker Mode)");
 // Global variables to hold the MediaRecorder instances and the binary data chunks for audio, screen, and webcam recordings.
 //  These variables are used to manage the recording state and store the captured media data until it is ready to be processed and downloaded.
@@ -157,6 +191,40 @@ async function startCapture(streamId) {
 
     console.log(` Recording Started.`);
 }
+
+async function convertAudioToWav(chunks) {
+    try {
+        await ensureFFmpegLoaded();
+
+        const inputBlob = new Blob(chunks, { type: 'audio/webm' });
+        const inputData = await fetchFile(inputBlob);
+
+        await ffmpeg.writeFile('input.webm', inputData);
+
+        const exitCode = await ffmpeg.exec([
+            '-i',      'input.webm',
+            '-vn',
+            '-acodec', 'pcm_s16le',
+            '-ar',     '16000',
+            '-ac',     '1',
+            'output.wav'
+        ]);
+
+        if (exitCode !== 0) throw new Error(`FFmpeg exited ${exitCode}`);
+
+        const outputData = await ffmpeg.readFile('output.wav');
+
+        await ffmpeg.deleteFile('input.webm');
+        await ffmpeg.deleteFile('output.wav');
+
+        return { blob: new Blob([outputData.buffer], { type: 'audio/wav' }), ext: 'wav' };
+
+    } catch (err) {
+        console.error('[FFmpeg] Audio conversion failed, falling back to .webm:', err);
+        return null;
+    }
+}
+
 //stops all recorders, cleans up hardware tracks, and sends files to background.js
 function stopCapture() {
     console.log(" Stopping.");
@@ -164,34 +232,42 @@ function stopCapture() {
         chrome.runtime.sendMessage({ type: 'STOP_DONE' });
         return;
     }
-    // helper function to stop a recorder and return the data as a URL
+
     const stopRecorder = (recorder, chunks, type) => {
         return new Promise((resolve) => {
             if (!recorder || recorder.state === 'inactive') { resolve(null); return; }
-            recorder.onstop = () => {
-                const blob = new Blob(chunks, { type: type === 'audio' ? 'audio/webm' : 'video/webm' });
-                resolve(URL.createObjectURL(blob));
+            recorder.onstop = async () => {
+                if (type === 'audio') {
+                    const result = await convertAudioToWav(chunks);
+                    if (result) {
+                        resolve({ url: URL.createObjectURL(result.blob), ext: 'wav' });
+                    } else {
+                        const blob = new Blob(chunks, { type: 'audio/webm' });
+                        resolve({ url: URL.createObjectURL(blob), ext: 'webm' });
+                    }
+                } else {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    resolve({ url: URL.createObjectURL(blob), ext: 'webm' });
+                }
             };
             recorder.stop();
         });
     };
+
 // Kill all hardware tracks (turns off the green "recording" dots in Chrome)
     activeStream.getTracks().forEach(t => t.stop());
     if (camStream) camStream.getTracks().forEach(t => t.stop());
     if (activeCtx) activeCtx.close();
+
 // Wait for all recorders to finish processing their final chunks
     Promise.all([
-        stopRecorder(screenRecorder, screenChunks, 'video'),
-        stopRecorder(webcamRecorder, webcamChunks, 'video'),
-        stopRecorder(audioRecorder, audioChunks, 'audio')
-    ]).then(([screenUrl, webcamUrl, audioUrl]) => {
-        // Send the final file URLs to background.js to trigger the downloads
-        if (screenUrl) chrome.runtime.sendMessage({ type: 'DOWNLOAD', fileType: 'video', url: screenUrl });
-        if (webcamUrl) chrome.runtime.sendMessage({ type: 'DOWNLOAD', fileType: 'webcam', url: webcamUrl });
-        if (audioUrl) chrome.runtime.sendMessage({ type: 'DOWNLOAD', fileType: 'audio', url: audioUrl });
-        // Small delay before resetting the UI to IDLE
-        setTimeout(() => {
-            chrome.runtime.sendMessage({ type: 'STOP_DONE' });
-        }, 500);
+        stopRecorder(screenRecorder,  screenChunks,  'video'),
+        stopRecorder(webcamRecorder,  webcamChunks,  'video'),
+        stopRecorder(audioRecorder,   audioChunks,   'audio')
+    ]).then(([screenResult, webcamResult, audioResult]) => {
+        if (screenResult) chrome.runtime.sendMessage({ type: 'DOWNLOAD', fileType: 'video',  url: screenResult.url,  ext: screenResult.ext });
+        if (webcamResult) chrome.runtime.sendMessage({ type: 'DOWNLOAD', fileType: 'webcam', url: webcamResult.url, ext: webcamResult.ext });
+        if (audioResult)  chrome.runtime.sendMessage({ type: 'DOWNLOAD', fileType: 'audio',  url: audioResult.url,  ext: audioResult.ext });
+        setTimeout(() => chrome.runtime.sendMessage({ type: 'STOP_DONE' }), 500);
     });
 }

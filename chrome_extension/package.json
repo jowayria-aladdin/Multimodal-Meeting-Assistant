@@ -1,0 +1,18 @@
+{
+  "name": "chrome_extension",
+  "version": "1.0.0",
+  "description": "1. Navigate to the LughaCap web landing page and click \"Download Extension Now!\".\r 2. Once downloaded, extract/unzip the LughaCap.zip file to a folder on your computer.\r    *Note: Remember where you saved this folder, as Chrome will need to reference it in the next steps.*\r ### Step 2: Enable Developer Mode in Chrome\r 1. Open Google Chrome.\r 2. Type 'chrome://extensions/' into your URL bar and press Enter.\r 3.I n the top-right corner of the Extensions page, toggle the \"Developer mode\" switch so it is turned ON.\r ### Step 3: Load the Extension\r 1. Click the \"Load unpacked\" button that appears after enabling Developer mode.\r 2. A file browser window will open. Navigate to the extracted LughaCap folder from Step 1.\r 3. Select the folder and click \"Select Folder\", make sure you select the folder containing the manifest.json file, not a folder inside it.\r 4. LughaCap should now appear in your list of extensions, and you should see its icon in the Chrome toolbar.\r ### Step 4: Grant the Extension Permissions\r 1. Once you select the folder, permissions setup page will appear asking for microphone and camera access. These permissions are necessary for LughaCap to capture audio and video during meetings.\r 2. Click **Grant Microphone** and click \"Allow\" on the browser prompt. (Required to transcribe the meeting).\r 3. Click **Grant Camera** and click \"Allow\" on the browser prompt. (Optional: Only required if you want to use the Sign Language translation features. You can skip this if you only want audio).\r *Note: If you accidentally close the setup tab or need to change the permissions, you can open it again by clicking the LughaCap icon in your toolbar and select \"Options\".*\r ### Step 5: Use the Extension\r 1. Click the Puzzle Piece icon (Extensions menu) in the top right of your Chrome browser.\r 2. Find LughaCap in the list.\r 3. To record a meeting, navigate to your meeting tab and click the LughaCap icon. The icon will turn red and display \"REC\".\r 4. To stop recording, click the icon again. Your audio and video files will automatically process and download.",
+  "main": "background.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2"
+  }
+}
