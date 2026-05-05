@@ -27,7 +27,6 @@ print(f" Interval:   Every 2 minutes")
 
 def call_sign_language_api(webm_path):
     try:
-        # count frames directly, use fixed 30fps for webm
         probe = subprocess.run(
             ['ffprobe', '-v', 'error',
              '-select_streams', 'v:0',
@@ -39,19 +38,12 @@ def call_sign_language_api(webm_path):
 
         val = probe.stdout.strip()
         frames = int(val) if val.isdigit() else 0
-        fps = 30
-        duration = frames / fps
-        print(f"   Frames: {frames}, FPS: {fps}, Duration: {duration:.1f}s")
+        duration = frames / 30
+        print(f"   Frames: {frames}, Duration: {duration:.1f}s")
 
         if duration == 0:
             print("   Could not determine duration — skipping")
             return
-
-        def fmt(secs):
-            h = int(secs // 3600)
-            m = int((secs % 3600) // 60)
-            s = int(secs % 60)
-            return f"{h:02}:{m:02}:{s:02}"
 
         output = []
         seg_start = 0
@@ -60,17 +52,14 @@ def call_sign_language_api(webm_path):
             seg_end  = min(seg_start + 5, duration)
             seg_path = f"/tmp/seg_{int(seg_start)}.webm"
 
-            result_ffmpeg = subprocess.run([
+            subprocess.run([
                 'ffmpeg', '-y', '-i', webm_path,
-                '-ss', str(seg_start),
-                '-t', '5',
-                '-c:v', 'libvpx',
-                '-c:a', 'libvorbis',
+                '-ss', str(seg_start), '-t', '5',
+                '-c:v', 'libvpx', '-c:a', 'libvorbis',
                 seg_path
             ], capture_output=True, text=True)
 
             if not os.path.exists(seg_path):
-                print(f"   Segment {int(seg_start)}s not created — skipping")
                 seg_start += 5
                 continue
 
@@ -78,22 +67,18 @@ def call_sign_language_api(webm_path):
                 response = requests.post(
                     SIGN_API_URL,
                     files={"video": (f"seg_{int(seg_start)}.webm", f, "video/webm")},
+                    data={"seg_start": seg_start, "seg_end": seg_end},
                     timeout=120
                 )
 
             os.remove(seg_path)
 
             if response.status_code == 200:
-                result = response.json()
-                output.append({
-                    "speaker":    "disabled",
-                    "start":      fmt(seg_start),
-                    "end":        fmt(seg_end),
-                    "text":       result["sign"]
-                })
-                print(f"   {fmt(seg_start)} → {result['sign']} ({result['confidence']*100:.1f}%)")
+                # server returns the full formatted segment — just append it
+                output.append(response.json())
+                print(f"   {response.json()['start']} → {response.json()['text']}")
             else:
-                print(f"   Segment {int(seg_start)}s failed: {response.status_code} — {response.json()}")
+                print(f"   Segment {int(seg_start)}s failed: {response.status_code}")
 
             seg_start += 5
 
@@ -106,7 +91,7 @@ def call_sign_language_api(webm_path):
         print(f"   Saved: {os.path.basename(result_path)}")
 
     except requests.exceptions.ConnectionError:
-        print("   API not running — start sign_lang_api.py first")
+        print("   API not running")
     except Exception as e:
         print(f"   Error: {e}")
 

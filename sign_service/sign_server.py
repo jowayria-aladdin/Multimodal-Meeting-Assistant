@@ -35,14 +35,15 @@ with open(PKL_PATH, "rb") as f:
 class_to_sign = {v: k for k, v in sign_to_class.items()}
 print(f"✓ Sign language model loaded | {len(class_to_sign)} classes")
 
-class Prediction(BaseModel):
-    sign: str
-    confidence: float
+class SignSegment(BaseModel):
+    speaker: str
+    start: str
+    end: str
+    text: str
 
-class PredictResponse(BaseModel):
-    sign: str
-    confidence: float
-    top10: List[Prediction]
+class SegmentRequest(BaseModel):
+    seg_start: float
+    seg_end: float
 
 NUM_FRAMES  = 40
 mp_holistic = mp.solutions.holistic
@@ -114,8 +115,12 @@ def extract_sequence_from_video(video_path: str) -> np.ndarray:
 def health():
     return {"status": "ok", "classes": len(class_to_sign)}
 
-@app.post("/predict", response_model=PredictResponse)
-async def predict(video: UploadFile = File(...)):
+@app.post("/predict", response_model=SignSegment)
+async def predict(
+    video: UploadFile = File(...),
+    seg_start: float = 0.0,
+    seg_end: float = 5.0
+):
     suffix   = os.path.splitext(video.filename)[-1] or ".webm"
     tmp_path = None
     try:
@@ -137,20 +142,19 @@ async def predict(video: UploadFile = File(...)):
 
         batch = np.expand_dims(sequence, axis=0)
         probs = model.predict(batch, verbose=0)[0]
+        top_idx = int(np.argmax(probs))
 
-        top10_idx = np.argsort(probs)[-10:][::-1]
-        top10 = [
-            Prediction(
-                sign=str(class_to_sign.get(int(i), "Unknown")),
-                confidence=float(probs[i])
-            )
-            for i in top10_idx
-        ]
+        def fmt(secs):
+            h = int(secs // 3600)
+            m = int((secs % 3600) // 60)
+            s = int(secs % 60)
+            return f"{h:02}:{m:02}:{s:02}"
 
-        return PredictResponse(
-            sign=top10[0].sign,
-            confidence=top10[0].confidence,
-            top10=top10
+        return SignSegment(
+            speaker  = "disabled",
+            start    = fmt(seg_start),
+            end      = fmt(seg_end),
+            text     = str(class_to_sign.get(top_idx, "Unknown"))
         )
 
     finally:
