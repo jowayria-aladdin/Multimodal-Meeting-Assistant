@@ -53,6 +53,7 @@ let webcamChunks = [];
 let activeStream = null; // Tab audio/video
 let camStream = null;    // Webcam video
 let activeCtx = null;    // The Web Audio context for mixing
+let mixedAudioStream = null; // Mixed audio output for screen recording
 
 // communication handler listens for messages from the background script to start or stop recording. When it receives a 'START' message, it triggers the startCapture function with the provided stream ID.
 //  When it receives a 'STOP' message, it calls the stopCapture function to end the recording and process the captured media.
@@ -122,7 +123,8 @@ async function startCapture(streamId) {
 // 'latencyHint: playback' prevents the "popping/clicking" sounds in recorded audio.
     activeCtx = new AudioContext({ latencyHint: 'playback' }); 
     const dest = activeCtx.createMediaStreamDestination();
-    
+    mixedAudioStream = dest.stream;
+
     if (activeStream && micStream) {
         const tabSource = activeCtx.createMediaStreamSource(activeStream);
         const micSource = activeCtx.createMediaStreamSource(micStream);
@@ -177,11 +179,22 @@ async function startCapture(streamId) {
     audioRecorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 128000 });
     audioRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
     audioRecorder.start(1000);
-    // Recorder B: Screen Capture (For Visual Reference)
-    const screenOnlyStream = new MediaStream([activeStream.getVideoTracks()[0]]);
-    screenRecorder = new MediaRecorder(screenOnlyStream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 2500000 });
+    // Recorder B: Screen Capture (For Visual Reference) WITH mixed audio
+const screenTracks = [activeStream.getVideoTracks()[0]];
+
+if (mixedAudioStream && mixedAudioStream.getAudioTracks().length > 0) {
+    screenTracks.push(mixedAudioStream.getAudioTracks()[0]);
+}
+
+const screenWithAudioStream = new MediaStream(screenTracks);
+
+screenRecorder = new MediaRecorder(screenWithAudioStream, {
+    mimeType: 'video/webm;codecs=vp9,opus',
+    videoBitsPerSecond: 2500000
+});
     screenRecorder.ondataavailable = (e) => { if (e.data.size > 0) screenChunks.push(e.data); };
     screenRecorder.start(1000);
+
     // Recorder C: Webcam Capture (For the Sign Language Model)
     if (camStream) {
         webcamRecorder = new MediaRecorder(camStream, { mimeType: 'video/webm;codecs=vp9' });
@@ -258,6 +271,7 @@ function stopCapture() {
     activeStream.getTracks().forEach(t => t.stop());
     if (camStream) camStream.getTracks().forEach(t => t.stop());
     if (activeCtx) activeCtx.close();
+    mixedAudioStream = null;
 
 // Wait for all recorders to finish processing their final chunks
     Promise.all([
