@@ -5,14 +5,14 @@ services:
       dockerfile: server/Dockerfile
     container_name: meeting_orchestrator
     ports:
-      - "${ORCHESTRATOR_PORT}:5000"
+      - "5000:5000"
     environment:
-      - ASR_API_URL=${ASR_API_URL}
-      - SIGN_API_URL=${SIGN_API_URL}
-      - LLM_MODE=${LLM_MODE}
-      - QWEN_MODEL=${QWEN_MODEL}
+      - ASR_API_URL=http://asr_api:5002/predict
+      - SIGN_API_URL=http://sign_api:5001/predict
       - OLLAMA_URL=${OLLAMA_URL}
-      - LOCAL_PARALLEL=${LOCAL_PARALLEL}
+      - QWEN_MODEL=${QWEN_MODEL}
+      - INTERNAL_SECRET=${INTERNAL_SECRET}
+      - BACKEND_URL=${BACKEND_URL}
     depends_on:
       - asr_api
       - sign_api
@@ -23,18 +23,16 @@ services:
   asr_api:
     build:
       context: ./asr_service
-      dockerfile: Dockerfile.asr
+      dockerfile: Dockerfile.asr.cpu
     container_name: meeting_asr
     ports:
-      - "${ASR_PORT}:5002"
-    volumes:
-      - "${HF_CACHE_PATH}:${HF_CACHE_CONTAINER}"
+      - "5002:5002"
     environment:
       - PYANNOTE_API_KEY=${PYANNOTE_API_KEY}
+      - PYANNOTEAI_API_KEY=${PYANNOTEAI_API_KEY}
       - HF_HOME=${HF_CACHE_CONTAINER}
-      - TRANSFORMERS_CACHE=${HF_CACHE_CONTAINER}
-      - HUGGINGFACE_HUB_CACHE=${HF_CACHE_CONTAINER}
-    gpus: all
+    volumes:
+      - ${HF_CACHE_PATH}:${HF_CACHE_CONTAINER}
     restart: unless-stopped
 
   sign_api:
@@ -43,5 +41,5 @@ services:
       dockerfile: Dockerfile.sign
     container_name: meeting_sign
     ports:
-      - "${SIGN_PORT}:5001"
+      - "5001:5001"
     restart: unless-stopped

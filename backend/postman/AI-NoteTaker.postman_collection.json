@@ -180,7 +180,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"My New Company\",\n  \"logo\": \"https://example.com/new-logo.png\"\n}"
+              "raw": "{\n  \"name\": \"My New Company\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/companies",
@@ -214,7 +214,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": 2,\n  \"role\": \"member\"\n}"
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"role\": \"member\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/companies/{{companyId}}/memberships",
@@ -257,6 +257,68 @@
               "path": [
                 "api",
                 "meetings"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST Upload Meeting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Company-Id",
+                "value": "{{companyId}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Sprint Review Audio",
+                  "type": "text"
+                },
+                {
+                  "key": "lang",
+                  "value": "en",
+                  "type": "text"
+                },
+                {
+                  "key": "mainVideoUrl",
+                  "value": "https://res.cloudinary.com/demo/video/upload/v1713000000/main_video.mp4",
+                  "type": "text"
+                },
+                {
+                  "key": "mainVideoPublicId",
+                  "value": "main_video_42",
+                  "type": "text"
+                },
+                {
+                  "key": "signVideo",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "wavFile",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/meetings/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "meetings",
+                "upload"
               ]
             }
           }
@@ -315,7 +377,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": 2\n}"
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/meetings/{{meetingId}}/participants",
@@ -416,7 +478,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": 2\n}"
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/tasks/{{taskId}}/assignees",

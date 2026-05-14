@@ -1858,9 +1858,50 @@ npm run test:feature # Runs 4 feature tests
 
 ## Version & Changelog
 
-**Current Version**: 1.0.0
+**Current Version**: 1.1.1
 
-### v1.0.0 (March 2024)
+### v1.1.1 (May 2026)
+
+#### Features
+- ✅ Add PATCH `/api/companies/:id/memberships/:userId` to update member roles (admin/member only); owner promotion is disallowed via this endpoint.
+- ✅ Return tenant-scoped `role` in `GET /api/users` and `GET /api/users/:id` responses to surface user roles in the UI.
+- ✅ Accept JWT token via query string (`?token=...`) as a fallback for SSE/EventSource connections to support browser SSE constraints.
+
+#### Improvements
+- ✅ Enforced strict role validation for membership updates (`admin`, `member`).
+- ✅ Updated OpenAPI spec to v1.1.1 with documentation for membership patch and user role field.
+- ✅ Added unit tests covering companies service role updates, users service role mapping, and auth middleware token fallback.
+
+### v1.1.0 (April 2026)
+
+#### Features
+- ✅ Auth flow split into two endpoints: `POST /auth/login` returns token + user identity, and `GET /auth/me` returns memberships with `activeCompanyId` and `activeRole` for multi-company role selection.
+- ✅ Meeting upload pipeline now accepts required `lang`, sign-language video, wav files, and Cloudinary main video URL metadata.
+- ✅ Main meeting video is stored as Cloudinary playback metadata and excluded from FastAPI processing payloads.
+- ✅ FastAPI processing payload now forwards only sign-language video and wav files with meeting context.
+- ✅ Upload validation now enforces required `lang` values (`en`, `ar`, `cs`) and required wav input.
+- ✅ Meeting status lifecycle and SSE event stream remain the source of truth for UI progress updates.
+- ✅ Task assignee, meeting participant, and company membership assignment endpoints now accept email-based input and resolve internal user IDs server-side.
+- ✅ Task list responses now include nested assignee display data (`id`, `username`, `email`) inside `taskAssignees` for UI rendering.
+- ✅ PATCH task update behavior is now partial, preserving unchanged fields such as `due_date` when status is updated.
+- ✅ PATCH request bodies are documented in OpenAPI for company, meeting, and task update endpoints.
+- ✅ GET `/api/meetings/:id` now has a documented response example showing pyannote-style transcript output, summary, and tasks.
+- ✅ GET `/api/tasks` now documents task assignees clearly for UI consumption.
+- ✅ Company logo support was removed from the public API contract and database schema after previously being treated as a file-based concept.
+- ✅ Swagger/OpenAPI and team handoff docs updated to reflect the new upload, assignment, auth, and response contracts.
+
+#### Improvements
+- ✅ More modular backend service boundaries for meeting processing, upload validation, callback handling, and media routing.
+- ✅ Cloudinary-based main video playback flow designed for browser-friendly streaming without backend disk storage.
+- ✅ Backend now cleanly separates browser playback media from FastAPI AI-processing inputs.
+
+#### Notes
+- Main video playback is expected to be handled by Cloudinary URL streaming on the client side.
+- FastAPI should treat `signVideo` and `wavFile` as the only media inputs for AI processing.
+- The backend still acts as the source of truth for meeting metadata, task persistence, tenant access control, and per-company roles.
+- April 2026 release note: v1.1.0 collects the auth split, upload contract changes, doc updates, and response-shape improvements introduced after the initial March 2026 backend release.
+
+### v1.0.0 (March 2026)
 
 #### Features
 - ✅ Complete Express.js API scaffold

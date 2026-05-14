@@ -29,7 +29,7 @@ export const deleteTask = asyncHandler(async (req, res) => {
 export const addTaskAssignee = asyncHandler(async (req, res) => {
   const assignee = await tasksService.addTaskAssignee(
     Number(req.params.id),
-    Number(req.body.user_id),
+    req.body.email,
     req.tenant.companyId
   );
   res.status(201).json(assignee);

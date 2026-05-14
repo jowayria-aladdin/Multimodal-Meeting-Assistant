@@ -3,7 +3,32 @@ import { httpError } from "../utils/httpError.js";
 
 const assigneeSelection = {
   task_id: true,
-  user_id: true
+  user_id: true,
+  user: {
+    select: {
+      id: true,
+      username: true,
+      email: true
+    }
+  }
+};
+
+const resolveUserByEmail = async (email) => {
+  const normalizedEmail = typeof email === "string" ? email.trim() : "";
+
+  if (!normalizedEmail) {
+    throw httpError(400, "email is required");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail }
+  });
+
+  if (!user) {
+    throw httpError(404, "User not found");
+  }
+
+  return user;
 };
 
 export const createTask = async (companyId, { meeting_id, task_text, due_date, status }) => {
@@ -70,7 +95,7 @@ export const getTaskById = async (id, companyId) => {
 export const updateTask = async (id, companyId, payload) => {
   await getTaskById(id, companyId);
 
-  if (payload.meeting_id) {
+  if (payload.meeting_id !== undefined) {
     const meeting = await prisma.meeting.findFirst({
       where: {
         id: payload.meeting_id,
@@ -83,14 +108,31 @@ export const updateTask = async (id, companyId, payload) => {
     }
   }
 
+  const data = {};
+
+  if (payload.meeting_id !== undefined) {
+    data.meeting_id = payload.meeting_id;
+  }
+
+  if (payload.task_text !== undefined) {
+    data.task_text = payload.task_text;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, "due_date")) {
+    data.due_date = payload.due_date ? new Date(payload.due_date) : null;
+  }
+
+  if (payload.status !== undefined) {
+    data.status = payload.status;
+  }
+
+  if (!Object.keys(data).length) {
+    throw httpError(400, "At least one field is required for update");
+  }
+
   return prisma.task.update({
     where: { id },
-    data: {
-      meeting_id: payload.meeting_id,
-      task_text: payload.task_text,
-      due_date: payload.due_date ? new Date(payload.due_date) : null,
-      status: payload.status
-    }
+    data
   });
 };
 
@@ -99,7 +141,9 @@ export const deleteTask = async (id, companyId) => {
   await prisma.task.delete({ where: { id } });
 };
 
-export const addTaskAssignee = async (taskId, userId, companyId) => {
+export const addTaskAssignee = async (taskId, email, companyId) => {
+  const targetUser = await resolveUserByEmail(email);
+
   const [task, user] = await Promise.all([
     prisma.task.findFirst({
       where: {
@@ -111,7 +155,7 @@ export const addTaskAssignee = async (taskId, userId, companyId) => {
     }),
     prisma.user.findFirst({
       where: {
-        id: userId,
+        id: targetUser.id,
         companyMemberships: {
           some: {
             company_id: companyId
@@ -133,13 +177,13 @@ export const addTaskAssignee = async (taskId, userId, companyId) => {
     where: {
       task_id_user_id: {
         task_id: taskId,
-        user_id: userId
+        user_id: targetUser.id
       }
     },
     update: {},
     create: {
       task_id: taskId,
-      user_id: userId
+      user_id: targetUser.id
     }
   });
 };

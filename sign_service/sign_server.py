@@ -1,6 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import uvicorn
 import numpy as np
 import pickle
@@ -8,7 +7,6 @@ import cv2
 import mediapipe as mp
 import tensorflow as tf
 import tempfile, os
-from typing import List
 
 app = FastAPI(title="Sign Language API", version="1.0")
 
@@ -34,16 +32,6 @@ with open(PKL_PATH, "rb") as f:
 
 class_to_sign = {v: k for k, v in sign_to_class.items()}
 print(f"✓ Sign language model loaded | {len(class_to_sign)} classes")
-
-class SignSegment(BaseModel):
-    speaker: str
-    start: str
-    end: str
-    text: str
-
-class SegmentRequest(BaseModel):
-    seg_start: float
-    seg_end: float
 
 NUM_FRAMES  = 40
 mp_holistic = mp.solutions.holistic
@@ -115,12 +103,8 @@ def extract_sequence_from_video(video_path: str) -> np.ndarray:
 def health():
     return {"status": "ok", "classes": len(class_to_sign)}
 
-@app.post("/predict", response_model=SignSegment)
-async def predict(
-    video: UploadFile = File(...),
-    seg_start: float = 0.0,
-    seg_end: float = 5.0
-):
+@app.post("/predict")
+async def predict(video: UploadFile = File(...)):
     suffix   = os.path.splitext(video.filename)[-1] or ".webm"
     tmp_path = None
     try:
@@ -128,35 +112,76 @@ async def predict(
             tmp.write(await video.read())
             tmp_path = tmp.name
 
-        sequence = extract_sequence_from_video(tmp_path)
-        if len(sequence) == 0:
-            raise HTTPException(status_code=400, detail="No frames extracted from video")
+        cap         = cv2.VideoCapture(tmp_path)
+        fps         = cap.get(cv2.CAP_PROP_FPS) or 30
+        all_segments = []
+        seg_kps     = []
+        seg_start   = 0.0
+        frame_idx   = 0
+        step        = int(5 * fps)
 
-        if len(sequence) < NUM_FRAMES:
-            pad = np.repeat(sequence[-1:], NUM_FRAMES - len(sequence), axis=0)
-            sequence = np.concatenate([sequence, pad], axis=0)
+        with mp_holistic.Holistic(
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
+        ) as holistic:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
 
-        sequence = normalize_sequence_length(sequence, NUM_FRAMES)
-        sequence = normalize_landmarks(sequence)
-        sequence = calculate_velocity_features(sequence)
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                rgb.flags.writeable = False
+                results = holistic.process(rgb)
+                seg_kps.append(extract_keypoints(results))
+                frame_idx += 1
 
-        batch = np.expand_dims(sequence, axis=0)
-        probs = model.predict(batch, verbose=0)[0]
-        top_idx = int(np.argmax(probs))
+                # every 5 seconds — predict and reset
+                if frame_idx % step == 0:
+                    seg_end = frame_idx / fps
+                    sequence = np.array(seg_kps, dtype=np.float32)
+                    sequence = normalize_sequence_length(sequence, NUM_FRAMES)
+                    sequence = normalize_landmarks(sequence)
+                    sequence = calculate_velocity_features(sequence)
 
-        def fmt(secs):
-            h = int(secs // 3600)
-            m = int((secs % 3600) // 60)
-            s = int(secs % 60)
-            return f"{h:02}:{m:02}:{s:02}"
+                    batch  = np.expand_dims(sequence, axis=0)
+                    probs  = model.predict(batch, verbose=0)[0]
+                    top_idx = int(np.argmax(probs))
 
-        return SignSegment(
-            speaker  = "disabled",
-            start    = fmt(seg_start),
-            end      = fmt(seg_end),
-            text     = str(class_to_sign.get(top_idx, "Unknown"))
-        )
+                    all_segments.append({
+                        "speaker": "SIGN_LANGUAGE",
+                        "start":   float(seg_start),
+                        "end":     float(seg_end),
+                        "text":    str(class_to_sign.get(top_idx, "Unknown"))
+                    })
 
+                    seg_kps   = []
+                    seg_start = seg_end
+
+        # handle remaining frames
+        if seg_kps:
+            seg_end  = frame_idx / fps
+            sequence = np.array(seg_kps, dtype=np.float32)
+            sequence = normalize_sequence_length(sequence, NUM_FRAMES)
+            sequence = normalize_landmarks(sequence)
+            sequence = calculate_velocity_features(sequence)
+
+            batch   = np.expand_dims(sequence, axis=0)
+            probs   = model.predict(batch, verbose=0)[0]
+            top_idx = int(np.argmax(probs))
+
+            all_segments.append({
+                "speaker": "SIGN_LANGUAGE",
+                "start":   float(seg_start),
+                "end":     float(seg_end),
+                "text":    str(class_to_sign.get(top_idx, "Unknown"))
+            })
+
+        cap.release()
+        return {"sign": all_segments}
+
+    except Exception as e:
+        print(f"Error during prediction: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)

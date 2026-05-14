@@ -65,17 +65,13 @@ def run_sign_node(state):
         )
 
     response.raise_for_status()
+    sign_segments = response.json()["sign"]
 
     output = "./raw_output/video_raw.json"
     os.makedirs("./raw_output", exist_ok=True)
 
     with open(output, "w", encoding="utf-8") as out:
-        json.dump([{
-            "speaker": "SIGN_00",
-            "start": 0,
-            "end": 0,
-            "text": response.json()["sign"]
-        }], out, indent=4)
+        json.dump(sign_segments, out, indent=4)
 
     return {"video_json": output}
 

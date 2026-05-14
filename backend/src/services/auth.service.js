@@ -10,6 +10,12 @@ const sanitizeUser = (user) => ({
   email: user.email
 });
 
+const sanitizeMembership = (membership) => ({
+  companyId: membership.company_id,
+  companyName: membership.company.name,
+  role: membership.role
+});
+
 const issueToken = (user) => jwt.sign(
   { id: user.id, username: user.username, email: user.email },
   env.jwtSecret,
@@ -61,5 +67,41 @@ export const login = async ({ email, password }) => {
   return {
     user: sanitizeUser(user),
     token: issueToken(user)
+  };
+};
+
+export const me = async ({ userId, activeCompanyId = null }) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      companyMemberships: {
+        include: {
+          company: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        },
+        orderBy: { company_id: "asc" }
+      }
+    }
+  });
+
+  if (!user) {
+    throw httpError(404, "User not found");
+  }
+
+  const memberships = user.companyMemberships.map(sanitizeMembership);
+
+  const activeMembership = activeCompanyId
+    ? user.companyMemberships.find((membership) => membership.company_id === activeCompanyId) || null
+    : user.companyMemberships[0] || null;
+
+  return {
+    user: sanitizeUser(user),
+    memberships,
+    activeCompanyId: activeMembership?.company_id ?? null,
+    activeRole: activeMembership?.role ?? null
   };
 };

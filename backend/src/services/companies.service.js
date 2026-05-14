@@ -7,7 +7,27 @@ const membershipSelection = {
   role: true
 };
 
-export const createCompany = async ({ name, logo }, creatorUserId) => {
+const ALLOWED_MEMBERSHIP_ROLES = new Set(["admin", "member"]);
+
+const resolveUserByEmail = async (email) => {
+  const normalizedEmail = typeof email === "string" ? email.trim() : "";
+
+  if (!normalizedEmail) {
+    throw httpError(400, "email is required");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail }
+  });
+
+  if (!user) {
+    throw httpError(404, "User not found");
+  }
+
+  return user;
+};
+
+export const createCompany = async ({ name }, creatorUserId) => {
   if (!name) {
     throw httpError(400, "name is required");
   }
@@ -15,7 +35,6 @@ export const createCompany = async ({ name, logo }, creatorUserId) => {
   return prisma.company.create({
     data: {
       name,
-      logo,
       memberships: {
         create: {
           user_id: creatorUserId,
@@ -67,14 +86,13 @@ export const getCompanyById = async (id, userId) => {
   return company;
 };
 
-export const updateCompany = async (id, { name, logo }, userId) => {
+export const updateCompany = async (id, { name }, userId) => {
   await getCompanyById(id, userId);
 
   return prisma.company.update({
     where: { id },
     data: {
-      name,
-      logo
+      name
     }
   });
 };
@@ -84,37 +102,75 @@ export const deleteCompany = async (id, userId) => {
   await prisma.company.delete({ where: { id } });
 };
 
-export const addMembership = async (companyId, { user_id, role }) => {
+export const addMembership = async (companyId, { email, role }) => {
   const normalizedRole = (role || "member").trim().toLowerCase();
-
-  if (!user_id) {
-    throw httpError(400, "user_id is required");
-  }
 
   if (!normalizedRole) {
     throw httpError(400, "role is required");
   }
 
-  await getCompanyById(companyId);
+  if (!ALLOWED_MEMBERSHIP_ROLES.has(normalizedRole)) {
+    throw httpError(400, "role must be one of: admin, member");
+  }
 
-  const userExists = await prisma.user.findUnique({ where: { id: user_id } });
-  if (!userExists) {
-    throw httpError(404, "User not found");
+  const user = await resolveUserByEmail(email);
+
+  const company = await prisma.company.findUnique({ where: { id: companyId } });
+  if (!company) {
+    throw httpError(404, "Company not found");
   }
 
   return prisma.companyMembership.upsert({
     where: {
       user_id_company_id: {
-        user_id,
+        user_id: user.id,
         company_id: companyId
       }
     },
     update: { role: normalizedRole },
     create: {
-      user_id,
+      user_id: user.id,
       company_id: companyId,
       role: normalizedRole
     }
+  });
+};
+
+export const updateMembershipRole = async (companyId, userId, { role }) => {
+  const normalizedRole = typeof role === "string" ? role.trim().toLowerCase() : "";
+
+  if (!normalizedRole) {
+    throw httpError(400, "role is required");
+  }
+
+  if (!ALLOWED_MEMBERSHIP_ROLES.has(normalizedRole)) {
+    throw httpError(400, "role must be one of: admin, member");
+  }
+
+  const existing = await prisma.companyMembership.findUnique({
+    where: {
+      user_id_company_id: {
+        user_id: userId,
+        company_id: companyId
+      }
+    }
+  });
+
+  if (!existing) {
+    throw httpError(404, "Membership not found");
+  }
+
+  return prisma.companyMembership.update({
+    where: {
+      user_id_company_id: {
+        user_id: userId,
+        company_id: companyId
+      }
+    },
+    data: {
+      role: normalizedRole
+    },
+    select: membershipSelection
   });
 };
 

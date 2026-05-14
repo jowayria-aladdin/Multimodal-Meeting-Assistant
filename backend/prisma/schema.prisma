@@ -13,6 +13,15 @@ enum TaskStatus {
   DONE
 }
 
+enum MeetingProcessingStatus {
+  UPLOADED
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 model User {
   id                  Int                   @id @default(autoincrement())
   username            String                @unique
@@ -26,7 +35,6 @@ model User {
 model Company {
   id          Int                 @id @default(autoincrement())
   name        String
-  logo        String?
   memberships CompanyMembership[]
   meetings    Meeting[]
 }
@@ -46,8 +54,18 @@ model Meeting {
   id                   Int                   @id @default(autoincrement())
   company_id           Int
   title                String
+  main_video_url       String?
+  main_video_public_id String?
   transcript           String?
   summary              String?
+  processing_status    MeetingProcessingStatus @default(UPLOADED)
+  progress_percent     Int                   @default(0)
+  status_message       String?
+  processing_started_at DateTime?
+  processing_completed_at DateTime?
+  error_message        String?
+  source_webm_path     String?
+  source_wav_path      String?
   created_at           DateTime              @default(now())
   company              Company               @relation(fields: [company_id], references: [id], onDelete: Cascade)
   meetingParticipants  MeetingParticipants[]
