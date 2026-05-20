@@ -3,6 +3,8 @@ import json
 import os
 import httpx
 from langgraph.graph import StateGraph, START, END
+import sys
+sys.stdout.reconfigure(line_buffering=True)
 
 # =========================
 # STATE
@@ -34,7 +36,6 @@ class PipelineState(TypedDict, total=False):
 
 def run_asr_node(state):
     ASR_API_URL = os.getenv("ASR_API_URL")
-
     with open(state["audio_path"], "rb") as f:
         response = httpx.post(
             ASR_API_URL,
@@ -153,10 +154,8 @@ def final_node(state):
         "summary": llm_output["summary"],
         "tasks": llm_output["tasks"],
         "name_recognition": llm_output["name_recognition"],
-        "transcription": transcription,
         "full_transcript_text": full_transcript_text
     }
-
     return {"final_output": final}
 
 # =========================

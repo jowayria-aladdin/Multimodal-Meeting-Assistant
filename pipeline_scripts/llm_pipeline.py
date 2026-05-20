@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date
 import json
 import os
 from pathlib import Path
@@ -7,6 +8,8 @@ from typing import List, Optional
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 from dotenv import load_dotenv
+import sys
+sys.stdout.reconfigure(line_buffering=True)
 
 # ----------------------------
 # Config
@@ -49,6 +52,7 @@ class TaskItem(BaseModel):
     assignee: Optional[str] = None
     assigned_by: Optional[str] = None
     deadline: Optional[str] = None
+    evidence: Optional[str] = None
 
 class TasksOutput(BaseModel):
     tasks: List[TaskItem]
@@ -179,6 +183,7 @@ Transcript:
 
 def build_tasks_prompt(transcript_text: str, language: str) -> str:
     output_language_instruction = build_output_language_instruction(language)
+    today = date.today().isoformat()
 
     return f"""
 You are analyzing a technical meeting transcript in Arabic, English, or mixed code-switching.
@@ -214,11 +219,19 @@ Example ():
     "task_name": "هعمل test عليه النهاردة",
     "assignee": "SPEAKER_01",
     "assigned_by": "SPEAKER_01",
-    "deadline": "النهاردة"
+    "deadline": "2026-05-20"
 }}
 
 Deadline:
-- If not explicit → deadline = null
+    - If not explicit → deadline = null
+    - If explicit, convert it to an ISO 8601 date string (YYYY-MM-DD) relative to today's date: {today}.
+    - Examples:
+        - "النهاردة" → today's date
+        - "بكرا" → tomorrow's date
+        - "كمان أسبوع" → today + 7 days
+        - "نهاية الأسبوع" → the upcoming Sunday
+        - "الأسبوع الجاي" → the upcoming Monday
+    - Always return a concrete date string, never a relative phrase.
 
 
 Required JSON format:
@@ -331,6 +344,12 @@ async def call_gemini(prompt: str) -> str:
 
     async with httpx.AsyncClient(timeout=GEMINI_TIMEOUT) as client:
         response = await client.post(url, json=payload)
+        if not response.is_success:
+            print(f"[LLM] Gemini error response: {response.text}", flush=True)
+        response.raise_for_status()
+
+    async with httpx.AsyncClient(timeout=GEMINI_TIMEOUT) as client:
+        response = await client.post(url, json=payload)
         response.raise_for_status()
         data = response.json()
 
@@ -364,19 +383,15 @@ async def call_qwen(prompt: str) -> str:
 
 async def call_llm_async(prompt: str) -> str:
     if LLM_MODE == "gemini":
-        print(f"[LLM] Using Gemini: {GEMINI_MODEL}")
         return await call_gemini(prompt)
 
     if LLM_MODE == "qwen":
-        print(f"[LLM] Using Qwen: {QWEN_MODEL}")
         return await call_qwen(prompt)
 
     try:
-        print(f"[LLM] Using Gemini first: {GEMINI_MODEL}")
         return await call_gemini(prompt)
     except Exception as gemini_error:
         print(f"[LLM] Gemini failed, falling back to Qwen: {gemini_error}")
-        print(f"[LLM] Using Qwen fallback: {QWEN_MODEL}")
         return await call_qwen(prompt)
 
 
@@ -385,29 +400,26 @@ async def call_llm_async(prompt: str) -> str:
 # ----------------------------
 
 async def run_summary_async(transcript_text: str, language: str) -> SummaryOutput:
-    print("[LLM] Running summary...")
     prompt = build_summary_prompt(transcript_text, language)
     raw_response = await call_llm_async(prompt)
     parsed = extract_json_from_response(raw_response)
-    print("[LLM] Summary done ✅")
+    print("[LLM] Summary done")
     return SummaryOutput.model_validate(parsed)
 
 
 async def run_tasks_async(transcript_text: str, language: str) -> TasksOutput:
-    print("[LLM] Running tasks...")
     prompt = build_tasks_prompt(transcript_text, language)
     raw_response = await call_llm_async(prompt)
     parsed = extract_json_from_response(raw_response)
-    print("[LLM] Tasks done ✅")
+    print("[LLM] Tasks done")
     return TasksOutput.model_validate(parsed)
 
 
 async def run_names_async(transcript_text: str, language: str) -> NameRecognitionOutput:
-    print("[LLM] Running name recognition...")
     prompt = build_names_prompt(transcript_text, language)
     raw_response = await call_llm_async(prompt)
     parsed = extract_json_from_response(raw_response)
-    print("[LLM] Names done ✅")
+    print("[LLM] Names done")
     return NameRecognitionOutput.model_validate(parsed)
 
 
@@ -416,31 +428,24 @@ async def run_names_async(transcript_text: str, language: str) -> NameRecognitio
 # ----------------------------
 
 async def run_llm_pipeline_async(input_path: str, output_path: str, language: str = "mix") -> dict:
-    print(f"[LLM] Mode: {LLM_MODE}")
-    print("[LLM] Loading transcript...")
     transcript_text = merged_json_to_text(input_path)
-    print("[LLM] Transcript loaded.")
-    print("[LLM] Starting pipeline...")
 
     use_parallel = True
     if LLM_MODE == "qwen" and not LOCAL_PARALLEL:
         use_parallel = False
 
     if use_parallel:
-        print("[LLM] Running summary, tasks, and name recognition in parallel...")
         summary, tasks, names = await asyncio.gather(
             run_summary_async(transcript_text, language),
             run_tasks_async(transcript_text, language),
             run_names_async(transcript_text, language)
         )
     else:
-        print("[LLM] Running summary, tasks, and name recognition sequentially...")
         summary = await run_summary_async(transcript_text, language)
         tasks = await run_tasks_async(transcript_text, language)
         names = await run_names_async(transcript_text, language)
 
-    print("[LLM] All tasks finished 🎉")
-    print("[LLM] Validating final output...")
+    tasks = apply_name_mappings_to_tasks(tasks, names)
 
     final_output = FinalLLMOutput(
         summary=summary,
@@ -454,7 +459,6 @@ async def run_llm_pipeline_async(input_path: str, output_path: str, language: st
     with output_file.open("w", encoding="utf-8") as f:
         json.dump(final_output.model_dump(), f, indent=4, ensure_ascii=False)
 
-    print(f"[LLM] Saved results to: {output_path}")
     return final_output.model_dump()
 
 

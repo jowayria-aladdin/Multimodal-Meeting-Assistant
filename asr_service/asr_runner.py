@@ -9,18 +9,22 @@ import torchaudio
 from pyannote.audio import Pipeline
 from transformers import pipeline
 from dotenv import load_dotenv
+import sys
+sys.stdout.reconfigure(line_buffering=True)
 
 
 LANGUAGE_PROMPTS = {
     "en": "Transcribe the speech exactly as spoken in English only.",
     "ar": "Transcribe the speech exactly as spoken in Arabic with Egyptian Dialect only.",
-    "mix": "Transcribe the speech exactly as spoken, preserving Arabic-English code-switching."
+    "mix": "Transcribe the speech exactly as spoken, preserving Arabic-English code-switching.",
+    "cs": "Transcribe the speech exactly as spoken, preserving Arabic-English code-switching.",
 }
 
 MODEL_LANGUAGE = {
     "en": "english",
     "ar": "arabic",
-    "mix": ""
+    "mix": "",
+    "cs": "",
 }
 
 
@@ -48,12 +52,10 @@ def cut_segments(audio_path, segments, out_dir):
 
     for i, seg in enumerate(segments):
         if seg["end"] <= seg["start"]:
-            print(f"[ASR] Skipping invalid segment: {seg}")
             continue
 
         duration = seg["end"] - seg["start"]
         out_path = os.path.join(out_dir, f"seg_{i}_{seg['speaker']}.wav")
-        print(f"[ASR] Cutting segment {i + 1}/{len(segments)}: {seg['start']:.3f} -> {seg['end']:.3f}")
 
         try:
             (
@@ -98,15 +100,13 @@ def load_asr_resources():
     model_dtype = torch.float16 if has_cuda else torch.float32
     device_name = "cuda" if has_cuda else "cpu"
 
-    print(f"[ASR] Using device: {device_name}")
-    print("[ASR] Loading diarization model...")
 
     diarization_pipeline = Pipeline.from_pretrained(
         "pyannote/speaker-diarization-precision-2",
         token=pyannote_api_key,
     )
-
-    print("[ASR] Loading ASR model...")
+    
+    print("[ASR] Diarization model loaded.", flush=True)
 
     asr_pipeline = pipeline(
         "automatic-speech-recognition",
@@ -115,6 +115,8 @@ def load_asr_resources():
         device=hf_device,
         return_timestamps=True,
     )
+
+    print("[ASR] ASR model loaded.", flush=True)
 
     return {
         "diarization_pipeline": diarization_pipeline,
@@ -141,17 +143,13 @@ def run_asr_pipeline(
     asr_pipeline = resources["asr_pipeline"]
     torch_device = resources["torch_device"]
 
-    print(f"[ASR] Language: {lang}")
-    print(f"[ASR] Prompt: {prompt}")
-    print(f"[ASR] Using cached models on: {torch_device}")
-
     Path(segments_dir).mkdir(parents=True, exist_ok=True)
 
     output_dir = os.path.dirname(output_path)
     if output_dir:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    print("[ASR] Running diarization...")
+    print("[ASR] Running diarization...", flush=True)
     waveform, sample_rate = torchaudio.load(audio_path)
 
     try:
@@ -161,7 +159,7 @@ def run_asr_pipeline(
         })
     except Exception as e:
         import traceback
-        print("[ASR] Diarization failed:")
+        print("[ASR] Diarization failed:", flush=True)
         traceback.print_exc()
         raise
 
@@ -173,14 +171,9 @@ def run_asr_pipeline(
             "end": float(turn.end),
         })
 
-    print(f"[ASR] Raw segments: {len(segments)}")
-
     segments = clean_segments(segments)
-    print(f"[ASR] Cleaned segments: {len(segments)}")
 
-    print("[ASR] Segments before cutting:")
-    for seg in segments:
-        print(seg)
+    print("[ASR] Diarization Finished.", flush=True)
 
     cut_segments(audio_path, segments, segments_dir)
 
@@ -200,16 +193,14 @@ def run_asr_pipeline(
     if language:
         generate_kwargs["language"] = language
 
-    print("[ASR] Running transcription...")
+    print("[ASR] Running transcription...", flush=True)
 
     diarized_transcript = []
 
     for i, seg in enumerate(segments, start=1):
         if "audio_path" not in seg:
-            print(f"[ASR] Skipping segment with no audio file: {seg}")
             continue
 
-        print(f"[ASR] Transcribing segment {i}/{len(segments)}...")
         audio_array = prepare_audio(seg["audio_path"])
 
         result = asr_pipeline(
@@ -224,13 +215,12 @@ def run_asr_pipeline(
             "text": result["text"].strip(),
         })
 
+    print("[ASR] Transcription Finished.", flush=True)
+
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(diarized_transcript, f, indent=4, ensure_ascii=False)
 
-    print(f"[ASR] Saved: {output_path}")
-
     if cleanup_segments and os.path.exists(segments_dir):
         shutil.rmtree(segments_dir)
-        print("[ASR] Segments cleaned up")
 
     return output_path

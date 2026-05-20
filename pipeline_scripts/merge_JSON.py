@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 from typing import List
+import sys
+sys.stdout.reconfigure(line_buffering=True)
 
 def load_json_file(path: str) -> List[dict]:
     file_path = Path(path)
@@ -39,7 +41,6 @@ if __name__ == "__main__":
     try:
         merged = merge_jsons(audio_file, video_file, merged_file)
         print(f"Merged successfully. Total items: {len(merged)}")
-        print(f"Saved: {merged_file}")
     except (ValueError, FileNotFoundError, KeyError) as e:
         print("Merge failed:")
         print(e)

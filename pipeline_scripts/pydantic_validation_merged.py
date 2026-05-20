@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from typing import List, Tuple
 from pydantic import BaseModel, Field, ValidationError, field_validator
+import sys
+sys.stdout.reconfigure(line_buffering=True)
 
 class SegmentItem(BaseModel):
     speaker: str = Field(..., min_length=1)
@@ -85,7 +87,6 @@ if __name__ == "__main__":
     try:
         validated_merged = validate_merged_json_file(merged_input, merged_output)
         print(f"Merged JSON validated successfully. Items: {len(validated_merged)}")
-        print(f"Saved: {merged_output}")
     except (ValidationError, ValueError, FileNotFoundError) as e:
         print("Merged JSON validation failed:")
         print(e)

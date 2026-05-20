@@ -13,6 +13,9 @@ services:
       - QWEN_MODEL=${QWEN_MODEL}
       - INTERNAL_SECRET=${INTERNAL_SECRET}
       - BACKEND_URL=${BACKEND_URL}
+      - LLM_MODE=${LLM_MODE}
+      - GEMINI_MODEL=${GEMINI_MODEL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       - asr_api
       - sign_api
@@ -23,16 +26,21 @@ services:
   asr_api:
     build:
       context: ./asr_service
-      dockerfile: Dockerfile.asr.cpu
+      dockerfile: Dockerfile.asr
     container_name: meeting_asr
     ports:
       - "5002:5002"
     environment:
       - PYANNOTE_API_KEY=${PYANNOTE_API_KEY}
-      - PYANNOTEAI_API_KEY=${PYANNOTEAI_API_KEY}
       - HF_HOME=${HF_CACHE_CONTAINER}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PYTHONWARNINGS=ignore
+      - GLOG_minloglevel=3
+      - TRANSFORMERS_VERBOSITY=error
     volumes:
       - ${HF_CACHE_PATH}:${HF_CACHE_CONTAINER}
+    gpus: all
     restart: unless-stopped
 
   sign_api:
@@ -42,4 +50,10 @@ services:
     container_name: meeting_sign
     ports:
       - "5001:5001"
+    environment:
+      - PYTHONWARNINGS=ignore
+      - TF_CPP_MIN_LOG_LEVEL=3
+      - TF_ENABLE_ONEDNN_OPTS=0
+      - GLOG_minloglevel=3
+      - ABSL_MIN_LOG_LEVEL=3
     restart: unless-stopped
