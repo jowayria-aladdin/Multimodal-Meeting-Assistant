@@ -9,9 +9,9 @@ import cors from "cors"; // cors import
 const app = express();
 // must be before routes to allow CORS for all endpoints, including /docs
 app.use(cors({
-  origin: "http://localhost:3001", //  match frontend's origin
+  origin: env.corsOrigin, //  match frontend's origin
   credentials: true
-}));
+}))
 
 app.use(express.json());
 
