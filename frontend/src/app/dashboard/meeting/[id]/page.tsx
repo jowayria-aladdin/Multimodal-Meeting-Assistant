@@ -344,21 +344,25 @@ export default function MeetingDetailsWorkstation() {
     
     if (!Array.isArray(rawTranscript)) return [];
 
-    const mappings = meeting?.name_recognition?.mappings || [];
-
-    return rawTranscript.map(line => {
-      const match = mappings.find(m => m.speaker_id === line.speaker);
-      return {
+    return rawTranscript
+      .filter(line => line.speaker !== "SIGN_LANGUAGE")
+      .map(line => ({
         ...line,
-        displaySpeaker: match?.predicted_name || line.speaker,
+        displaySpeaker: line.speaker || "Speaker",
         displayTime: line.time || formatTime(line.start)
-      };
-    });
+      }));
   };
 
   const renderSignTranscript = () => {
-    if (meeting?.sign_transcript && Array.isArray(meeting.sign_transcript)) return meeting.sign_transcript;
-    return []; 
+    const rawTranscript = meeting?.transcript;
+    if (!rawTranscript || !Array.isArray(rawTranscript)) return [];
+    
+    return rawTranscript
+      .filter(line => line.speaker === "SIGN_LANGUAGE")
+      .map(line => ({
+        ...line,
+        time: formatTime(line.start)
+      }));
   };
 
   return (

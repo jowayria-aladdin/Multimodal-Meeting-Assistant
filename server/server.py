@@ -40,7 +40,7 @@ async def send_callback(meeting_id: str, payload: dict):
 async def run_pipeline(
     meeting_id: str,
     wav_bytes: bytes,
-    sign_bytes: bytes,
+    sign_bytes: bytes | None,
     language: str,
     wav_suffix: str,
     sign_suffix: str
@@ -54,9 +54,10 @@ async def run_pipeline(
             f.write(wav_bytes)
             wav_path = f.name
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=sign_suffix) as f:
-            f.write(sign_bytes)
-            sign_path = f.name
+        if sign_bytes:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=sign_suffix) as f:
+                f.write(sign_bytes)
+                sign_path = f.name
 
         # progress: starting
         await send_callback(meeting_id, {
@@ -113,7 +114,7 @@ async def run_pipeline(
             "stage":    "completed",
             "message":  "Processing finished",
             "result": {
-                "transcript": final.get("full_transcript_text", ""),
+                "transcript": final.get("segments", []),
                 "summary":    final.get("summary", {}).get("text", ""),
                 "tasks":      tasks
             }
@@ -179,19 +180,16 @@ async def process_audio(
     if not selected_audio:
         raise HTTPException(status_code=422, detail="audio/wavFile field is required")
 
-    if not selected_video:
-        raise HTTPException(status_code=422, detail="video/signVideo field is required")
-
     # validate lang
     if selected_language not in ["en", "ar", "cs"]:
         raise HTTPException(status_code=400, detail="language/lang must be en, ar, or cs")
 
     # read files into memory immediately before background task
     wav_bytes = await selected_audio.read()
-    sign_bytes = await selected_video.read()
+    sign_bytes = await selected_video.read() if selected_video else None
 
     wav_suffix = os.path.splitext(selected_audio.filename)[-1] or ".wav"
-    sign_suffix = os.path.splitext(selected_video.filename)[-1] or ".webm"
+    sign_suffix = os.path.splitext(selected_video.filename)[-1] if selected_video else ".webm"
 
     background_tasks.add_task(
         run_pipeline,

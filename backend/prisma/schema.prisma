@@ -56,7 +56,7 @@ model Meeting {
   title                String
   main_video_url       String?
   main_video_public_id String?
-  transcript           String?
+  transcript           Json?
   summary              String?
   processing_status    MeetingProcessingStatus @default(UPLOADED)
   progress_percent     Int                   @default(0)

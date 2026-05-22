@@ -15,19 +15,14 @@ const ALLOWED_UPLOAD_LANGUAGES = new Set(["en", "ar", "cs"]);
 const CLOUDINARY_HOST = "res.cloudinary.com";
 
 const normalizeUploadedFiles = (files) => {
-  const signVideoFile = files?.signVideo?.[0] || null;
   const wavFile = files?.wavFile?.[0] || null;
-
-  if (!signVideoFile) {
-    throw httpError(400, "signVideo is required");
-  }
 
   if (!wavFile) {
     throw httpError(400, "wavFile is required");
   }
 
   return {
-    signVideoPath: signVideoFile.path,
+    signVideoPath: files?.signVideo?.[0]?.path || null,
     wavPath: wavFile.path
   };
 };
@@ -424,7 +419,7 @@ export const handleMeetingProcessingCallback = async (meetingId, payload) => {
   }
 
   if (normalizedStatus === "COMPLETED") {
-    const transcript = payload.result?.transcript || payload.transcript || null;
+    const transcript = payload.result?.transcript || payload.result?.segments || payload.transcript || null;
     const summary = payload.result?.summary || payload.summary || null;
     const callbackTasks = payload.result?.tasks || payload.tasks || [];
 

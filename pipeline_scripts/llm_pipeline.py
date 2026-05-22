@@ -73,6 +73,7 @@ class FinalLLMOutput(BaseModel):
     summary: SummaryOutput
     tasks: TasksOutput
     name_recognition: NameRecognitionOutput
+    segments: List[dict]
 
 
 # ----------------------------
@@ -120,30 +121,39 @@ def build_output_language_instruction(language: str) -> str:
     )
 
 
-def apply_name_mappings_to_tasks(tasks: TasksOutput, names: NameRecognitionOutput) -> TasksOutput:
+def apply_name_mappings(
+    tasks: TasksOutput,
+    names: NameRecognitionOutput,
+    segments: List[dict]
+) -> tuple[TasksOutput, List[dict]]:
     speaker_to_name = {
         item.speaker_id: item.predicted_name
         for item in names.mappings
         if item.predicted_name
     }
 
+    # Apply to tasks
     updated_tasks = []
-
     for task in tasks.tasks:
-        assignee = speaker_to_name.get(task.assignee, task.assignee)
-        assigned_by = speaker_to_name.get(task.assigned_by, task.assigned_by)
-
         updated_tasks.append(
             TaskItem(
                 task_name=task.task_name,
-                assignee=assignee,
-                assigned_by=assigned_by,
+                assignee=speaker_to_name.get(task.assignee, task.assignee),
+                assigned_by=speaker_to_name.get(task.assigned_by, task.assigned_by),
                 deadline=task.deadline,
                 evidence=task.evidence
             )
         )
 
-    return TasksOutput(tasks=updated_tasks)
+    # Apply to transcript segments
+    updated_segments = []
+    for seg in segments:
+        updated_segments.append({
+            **seg,
+            "speaker": speaker_to_name.get(seg["speaker"], seg["speaker"])
+        })
+
+    return TasksOutput(tasks=updated_tasks), updated_segments
 
 # ----------------------------
 # Prompt builders
@@ -403,7 +413,7 @@ async def run_summary_async(transcript_text: str, language: str) -> SummaryOutpu
     prompt = build_summary_prompt(transcript_text, language)
     raw_response = await call_llm_async(prompt)
     parsed = extract_json_from_response(raw_response)
-    print("[LLM] Summary done")
+    print("[LLM] Summary done", flush=True)
     return SummaryOutput.model_validate(parsed)
 
 
@@ -411,7 +421,7 @@ async def run_tasks_async(transcript_text: str, language: str) -> TasksOutput:
     prompt = build_tasks_prompt(transcript_text, language)
     raw_response = await call_llm_async(prompt)
     parsed = extract_json_from_response(raw_response)
-    print("[LLM] Tasks done")
+    print("[LLM] Tasks done", flush=True)
     return TasksOutput.model_validate(parsed)
 
 
@@ -419,7 +429,7 @@ async def run_names_async(transcript_text: str, language: str) -> NameRecognitio
     prompt = build_names_prompt(transcript_text, language)
     raw_response = await call_llm_async(prompt)
     parsed = extract_json_from_response(raw_response)
-    print("[LLM] Names done")
+    print("[LLM] Names done", flush=True)
     return NameRecognitionOutput.model_validate(parsed)
 
 
@@ -444,13 +454,16 @@ async def run_llm_pipeline_async(input_path: str, output_path: str, language: st
         summary = await run_summary_async(transcript_text, language)
         tasks = await run_tasks_async(transcript_text, language)
         names = await run_names_async(transcript_text, language)
-
-    tasks = apply_name_mappings_to_tasks(tasks, names)
+    
+    print("[LLM] Applying name mappings...", flush=True)
+    segments = load_merged_json(input_path)
+    tasks, segments = apply_name_mappings(tasks, names, segments)
 
     final_output = FinalLLMOutput(
         summary=summary,
         tasks=tasks,
-        name_recognition=names
+        name_recognition=names,
+        segments=segments
     )
 
     output_file = Path(output_path)

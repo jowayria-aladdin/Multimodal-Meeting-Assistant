@@ -69,8 +69,8 @@ export default function UploadModal({ onClose, onSuccess }: Props) {
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!videoFile || !audioFile || !signFile) {
-      alert("Please ensure all three media files (Audio, Main Video, Sign Video) are selected.");
+    if (!audioFile || !videoFile) {
+      alert("Please ensure at least two media files (Audio & Main Video) are selected.");
       return;
     }
 
@@ -115,8 +115,10 @@ export default function UploadModal({ onClose, onSuccess }: Props) {
       backendFormData.append("lang", langCode);
       backendFormData.append("mainVideoUrl", mainVideoUrl);
       backendFormData.append("mainVideoPublicId", mainVideoPublicId);
-      backendFormData.append("signVideo", signFile); 
-      backendFormData.append("wavFile", audioFile);  
+      if (signFile) {
+        backendFormData.append("signVideo", signFile);
+      }
+      backendFormData.append("wavFile", audioFile);
 
       // Send to Backend using apiFetch (passing the kill switch signal)
       await apiFetch("/meetings/upload", {
@@ -232,13 +234,13 @@ export default function UploadModal({ onClose, onSuccess }: Props) {
                   </div>
                   <div>
                     <p className="font-medium text-slate-900 text-sm">Raw Audio (ASR)</p>
-                    <p className="text-xs text-slate-500">.wav format required</p>
+                    <p className="text-xs text-slate-500">.webm or .wav format • required</p>
                   </div>
                 </div>
                 <input 
                   type="file" 
                   required 
-                  accept=".wav" 
+                  accept=".webm,.wav" 
                   onChange={(e) => setAudioFile(e.target.files?.[0] || null)} 
                   disabled={isUploading}
                   className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer w-full sm:w-48 disabled:opacity-50"
@@ -252,12 +254,12 @@ export default function UploadModal({ onClose, onSuccess }: Props) {
                   </div>
                   <div>
                     <p className="font-medium text-slate-900 text-sm">Main Meeting Video</p>
-                    <p className="text-xs text-slate-500">.webm or .mp4 format</p>
+                    <p className="text-xs text-slate-500">.webm or .mp4 format • required</p>
                   </div>
                 </div>
                 <input 
                   type="file" 
-                  required 
+                  required
                   accept=".webm,.mp4" 
                   onChange={(e) => setVideoFile(e.target.files?.[0] || null)} 
                   disabled={isUploading}
@@ -272,12 +274,11 @@ export default function UploadModal({ onClose, onSuccess }: Props) {
                   </div>
                   <div>
                     <p className="font-medium text-slate-900 text-sm">Sign Language Video</p>
-                    <p className="text-xs text-slate-500">.webm format required</p>
+                    <p className="text-xs text-slate-500">.webm only format • optional</p>
                   </div>
                 </div>
                 <input 
                   type="file" 
-                  required 
                   accept=".webm" 
                   onChange={(e) => setSignFile(e.target.files?.[0] || null)} 
                   disabled={isUploading}
