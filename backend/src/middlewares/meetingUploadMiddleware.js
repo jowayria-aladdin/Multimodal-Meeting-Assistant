@@ -16,7 +16,7 @@ const storage = multer.diskStorage({
 });
 
 const signVideoMimes = new Set(["video/webm", "audio/webm"]);
-const wavMimes = new Set(["audio/wav", "audio/wave", "audio/x-wav"]);
+const wavMimes = new Set(["audio/wav", "audio/wave", "audio/x-wav", "audio/webm", "video/webm"]);
 
 const fileFilter = (req, file, cb) => {
   if (file.fieldname === "signVideo") {

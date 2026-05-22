@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from typing import List
 from pydantic import BaseModel, Field, ValidationError, field_validator
+import sys
+sys.stdout.reconfigure(line_buffering=True)
 
 class SegmentItem(BaseModel):
     speaker: str = Field(..., min_length=1)
@@ -69,7 +71,6 @@ if __name__ == "__main__":
     try:
         validated_video = validate_json_file(video_input, video_output)
         print(f"Video JSON validated successfully. Items: {len(validated_video)}")
-        print(f"Saved: {video_output}")
     except FileNotFoundError:
         print("Video file not found yet, skipped.")
     except (ValidationError, ValueError) as e:

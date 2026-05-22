@@ -91,6 +91,7 @@ model Task {
   task_text     String
   due_date      DateTime?
   status        TaskStatus      @default(TODO)
+  assignee      String?
   meeting       Meeting         @relation(fields: [meeting_id], references: [id], onDelete: Cascade)
   taskAssignees TaskAssignees[]
 

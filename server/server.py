@@ -100,7 +100,8 @@ async def run_pipeline(
             {
                 "task_text": t.get("task_name", t.get("task_text", "")),
                 "due_date":  t.get("deadline", None),
-                "status":    "TODO"
+                "status":    "TODO",
+                "assignee":  t.get("assignee", None)
             }
             for t in raw_tasks
         ]
@@ -112,7 +113,7 @@ async def run_pipeline(
             "stage":    "completed",
             "message":  "Processing finished",
             "result": {
-                "transcript": final.get("transcription", []),
+                "transcript": final.get("full_transcript_text", ""),
                 "summary":    final.get("summary", {}).get("text", ""),
                 "tasks":      tasks
             }
@@ -136,6 +137,7 @@ async def run_pipeline(
                     os.remove(path)
                 except:
                     pass
+    print(f"[ORCHESTRATOR] Pipeline finished for meeting {meeting_id}", flush=True)
 
 ########### endpoints  ###########
 
@@ -147,36 +149,64 @@ def health():
 @app.post("/process-audio")
 async def process_audio(
     background_tasks: BackgroundTasks,
-    meetingId:  str        = Form(...),
-    companyId:  str        = Form(...),
-    title:      str        = Form(...),
-    language:       str        = Form(...),
-    audio:    UploadFile = File(...),
-    video:  UploadFile = File(...),
+    meetingId: str = Form(...),
+    companyId: str = Form(...),
+    title: str = Form(...),
+
+    # Accept both backend names and old/direct-test names
+    language: str | None = Form(None),
+    lang: str | None = Form(None),
+
+    audio: UploadFile | None = File(None),
+    wavFile: UploadFile | None = File(None),
+
+    video: UploadFile | None = File(None),
+    signVideo: UploadFile | None = File(None),
+
     x_internal_secret: str = Header(None)
 ):
     # validate secret
     if x_internal_secret != INTERNAL_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    selected_language = language or lang
+    selected_audio = audio or wavFile
+    selected_video = video or signVideo
+
+    if not selected_language:
+        raise HTTPException(status_code=422, detail="language/lang field is required")
+
+    if not selected_audio:
+        raise HTTPException(status_code=422, detail="audio/wavFile field is required")
+
+    if not selected_video:
+        raise HTTPException(status_code=422, detail="video/signVideo field is required")
+
     # validate lang
-    if language not in ["en", "ar", "cs"]:
-        raise HTTPException(status_code=400, detail="lang must be en, ar, or cs")
+    if selected_language not in ["en", "ar", "cs"]:
+        raise HTTPException(status_code=400, detail="language/lang must be en, ar, or cs")
 
     # read files into memory immediately before background task
-    wav_bytes   = await audio.read()
-    sign_bytes  = await video.read()
-    wav_suffix  = os.path.splitext(audio.filename)[-1] or ".wav"
-    sign_suffix = os.path.splitext(video.filename)[-1] or ".webm"
+    wav_bytes = await selected_audio.read()
+    sign_bytes = await selected_video.read()
 
-    # acknowledge immediately
+    wav_suffix = os.path.splitext(selected_audio.filename)[-1] or ".wav"
+    sign_suffix = os.path.splitext(selected_video.filename)[-1] or ".webm"
+
     background_tasks.add_task(
         run_pipeline,
-        meetingId, wav_bytes, sign_bytes,
-        language, wav_suffix, sign_suffix
+        meetingId,
+        wav_bytes,
+        sign_bytes,
+        selected_language,
+        wav_suffix,
+        sign_suffix
     )
 
-    return {"status": "QUEUED", "meetingId": meetingId}
+    return {
+        "status": "QUEUED",
+        "meetingId": meetingId
+    }
 
 # old endpoint — keep for direct testing
 @app.post("/process")
@@ -222,6 +252,7 @@ async def process(
                     os.remove(path)
                 except:
                     pass
+    
 
 
 if __name__ == "__main__":

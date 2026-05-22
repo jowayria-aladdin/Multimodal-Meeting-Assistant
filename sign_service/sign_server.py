@@ -7,6 +7,8 @@ import cv2
 import mediapipe as mp
 import tensorflow as tf
 import tempfile, os
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 app = FastAPI(title="Sign Language API", version="1.0")
 
@@ -31,7 +33,7 @@ with open(PKL_PATH, "rb") as f:
     sign_to_class = pickle.load(f)
 
 class_to_sign = {v: k for k, v in sign_to_class.items()}
-print(f"✓ Sign language model loaded | {len(class_to_sign)} classes")
+print(f"Sign language model loaded | {len(class_to_sign)} classes", flush=True)
 
 NUM_FRAMES  = 40
 mp_holistic = mp.solutions.holistic

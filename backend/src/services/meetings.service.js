@@ -455,7 +455,8 @@ export const handleMeetingProcessingCallback = async (meetingId, payload) => {
             meeting_id: meetingId,
             task_text: taskText,
             due_date: taskItem.due_date ? new Date(taskItem.due_date) : null,
-            status: taskItem.status || "TODO"
+            status: taskItem.status || "TODO",
+            assignee: taskItem.assignee || null
           }
         });
       }

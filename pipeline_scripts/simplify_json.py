@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 from typing import List
+import sys
+sys.stdout.reconfigure(line_buffering=True)
 
 def simplify_json(input_path: str, output_path: str) -> List[dict]:
     input_file = Path(input_path)
@@ -37,7 +39,6 @@ if __name__ == "__main__":
     try:
         result = simplify_json(input_file, output_file)
         print(f"Simplified JSON created. Items: {len(result)}")
-        print(f"Saved: {output_file}")
     except Exception as e:
         print("Simplification failed:")
         print(e)
