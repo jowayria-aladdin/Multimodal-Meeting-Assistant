@@ -213,12 +213,12 @@ export default function MeetingDetailsWorkstation() {
 
   // Subscribe to Server-Sent Events
   useEffect(() => {
-    if (!meetingId) return;
+    if (!meetingId || isLoading) return;
     
     const dbStatus = (meeting?.processing_status || meeting?.status || '').toUpperCase();
 
     if (dbStatus === 'COMPLETED' || dbStatus === 'FAILED' || dbStatus === 'CANCELLED') {
-       return;
+      return;
     }
 
     const token = localStorage.getItem("token");
@@ -263,7 +263,7 @@ export default function MeetingDetailsWorkstation() {
     return () => {
        es.close();
     };
-  }, [meetingId, meeting?.status, meeting?.processing_status, fetchRealData]);
+  }, [meetingId, meeting?.status, meeting?.processing_status, fetchRealData, isLoading]);
 
   const toggleTaskStatus = async (task: RealTask) => {
     const newStatus = (task.status === "DONE" || task.status === "COMPLETED") ? "TODO" : "DONE";

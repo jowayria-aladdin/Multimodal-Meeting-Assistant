@@ -57,6 +57,9 @@ def run_asr_node(state):
 
 
 def run_sign_node(state):
+    if not state.get("webcam_path"):
+        return {"video_json": None}
+
     SIGN_API_URL = os.getenv("SIGN_API_URL")
 
     with open(state["webcam_path"], "rb") as f:
@@ -86,6 +89,9 @@ def validate_audio_node(state):
 
 
 def validate_video_node(state):
+    if not state.get("video_json"):
+        return {"validated_video_json": None}
+    
     from pipeline_scripts.pydantic_validation import validate_json_file
     output = "./validated_output/validated_video.json"
     validate_json_file(state["video_json"], output)
@@ -93,14 +99,18 @@ def validate_video_node(state):
 
 
 def merge_node(state):
+    import shutil
     from pipeline_scripts.merge_JSON import merge_jsons
     output = "./validated_output/merged.json"
 
-    merge_jsons(
-        state["validated_audio_json"],
-        state["validated_video_json"],
-        output
-    )
+    if not state.get("validated_video_json"):
+        shutil.copy(state["validated_audio_json"], output)
+    else:
+        merge_jsons(
+            state["validated_audio_json"],
+            state["validated_video_json"],
+            output
+        )
 
     return {"merged_json": output}
 
@@ -151,7 +161,6 @@ def final_node(state):
     with open(state["full_segments_path"], "r", encoding="utf-8") as f:
         full_segments = json.load(f)
 
-    # apply name mappings to full segments
     speaker_to_name = {
         item["speaker_id"]: item["predicted_name"]
         for item in llm_output.get("name_recognition", {}).get("mappings", [])
@@ -159,7 +168,10 @@ def final_node(state):
     }
 
     resolved_segments = [
-        {**seg, "speaker": speaker_to_name.get(seg["speaker"], seg["speaker"])}
+        {
+            **seg,
+            "speaker": speaker_to_name.get(seg["speaker"], seg["speaker"])
+        }
         for seg in full_segments
     ]
 
@@ -169,22 +181,12 @@ def final_node(state):
         "name_recognition": llm_output["name_recognition"],
         "segments": resolved_segments
     }
+
     return {"final_output": final}
 
 # =========================
 # GRAPH
 # =========================
-
-def audio_only_merge_node(state):
-    import shutil
-    output = "./validated_output/validated_merged.json"
-    shutil.copy(state["validated_audio_json"], output)
-    return {"validated_merged_json": output}
-
-def route_after_validate_audio(state):
-    if state.get("webcam_path"):
-        return "sign"
-    return "audio_only_merge"
 
 def build_graph():
     os.makedirs("./raw_output", exist_ok=True)
@@ -198,7 +200,6 @@ def build_graph():
     graph.add_node("sign", run_sign_node)
     graph.add_node("validate_audio", validate_audio_node)
     graph.add_node("validate_video", validate_video_node)
-    graph.add_node("audio_only_merge", audio_only_merge_node)
     graph.add_node("merge", merge_node)
     graph.add_node("validate_merged", validate_merged_node)
     graph.add_node("simplify", simplify_node)
@@ -206,18 +207,11 @@ def build_graph():
     graph.add_node("final", final_node)
 
     graph.add_edge(START, "asr")
+    graph.add_edge(START, "sign")
     graph.add_edge("asr", "validate_audio")
-
-    graph.add_conditional_edges("validate_audio", route_after_validate_audio, {
-        "sign": "sign",
-        "audio_only_merge": "audio_only_merge"
-    })
-
     graph.add_edge("sign", "validate_video")
-    graph.add_edge("validate_video", "merge")
+    graph.add_edge(["validate_audio", "validate_video"], "merge")
     graph.add_edge("merge", "validate_merged")
-    graph.add_edge("audio_only_merge", "validate_merged")
-
     graph.add_edge("validate_merged", "simplify")
     graph.add_edge("simplify", "llm")
     graph.add_edge("llm", "final")
