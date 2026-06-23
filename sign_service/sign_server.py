@@ -120,17 +120,6 @@ async def predict(video: UploadFile = File(...)):
         if not fps or fps <= 0 or fps > 120:
             fps = 30
 
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        if frame_count < 0:
-            frame_count = 0
-
-        duration = frame_count / fps if fps else 0
-
-        print(f"[SIGN DEBUG] uploaded tmp_path: {tmp_path}", flush=True)
-        print(f"[SIGN DEBUG] fps: {fps}", flush=True)
-        print(f"[SIGN DEBUG] frame_count: {frame_count}", flush=True)
-        print(f"[SIGN DEBUG] duration from cv2: {duration}", flush=True)
-
         all_segments = []
         seg_kps     = []
         seg_start   = 0.0
