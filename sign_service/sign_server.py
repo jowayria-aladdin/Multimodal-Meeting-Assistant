@@ -114,8 +114,23 @@ async def predict(video: UploadFile = File(...)):
             tmp.write(await video.read())
             tmp_path = tmp.name
 
-        cap         = cv2.VideoCapture(tmp_path)
-        fps         = cap.get(cv2.CAP_PROP_FPS) or 30
+        cap = cv2.VideoCapture(tmp_path)
+
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if not fps or fps <= 0 or fps > 120:
+            fps = 30
+
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if frame_count < 0:
+            frame_count = 0
+
+        duration = frame_count / fps if fps else 0
+
+        print(f"[SIGN DEBUG] uploaded tmp_path: {tmp_path}", flush=True)
+        print(f"[SIGN DEBUG] fps: {fps}", flush=True)
+        print(f"[SIGN DEBUG] frame_count: {frame_count}", flush=True)
+        print(f"[SIGN DEBUG] duration from cv2: {duration}", flush=True)
+
         all_segments = []
         seg_kps     = []
         seg_start   = 0.0
@@ -177,6 +192,9 @@ async def predict(video: UploadFile = File(...)):
                 "end":     float(seg_end),
                 "text":    str(class_to_sign.get(top_idx, "Unknown"))
             })
+
+        print(f"[SIGN DEBUG] total frames actually read in loop: {frame_idx}", flush=True)
+        print(f"[SIGN DEBUG] total predicted segments: {len(all_segments)}", flush=True)
 
         cap.release()
         return {"sign": all_segments}
