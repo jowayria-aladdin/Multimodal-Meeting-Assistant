@@ -70,6 +70,7 @@ model Meeting {
   company              Company               @relation(fields: [company_id], references: [id], onDelete: Cascade)
   meetingParticipants  MeetingParticipants[]
   tasks                Task[]
+  chunks               MeetingChunk[]
 
   @@index([company_id])
   @@index([created_at])
@@ -108,4 +109,20 @@ model TaskAssignees {
 
   @@id([task_id, user_id])
   @@index([user_id])
+}
+
+model MeetingChunk {
+  id         Int      @id @default(autoincrement())
+  meeting_id Int
+  company_id Int
+  chunk_type String
+  content    String
+  embedding  Float[]
+  metadata   Json?
+  created_at DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meeting_id], references: [id], onDelete: Cascade)
+
+  @@index([meeting_id])
+  @@index([company_id])
 }

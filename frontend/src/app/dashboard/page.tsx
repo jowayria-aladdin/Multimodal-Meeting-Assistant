@@ -4,18 +4,19 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { 
-  Loader2, Plus, Users, Building, 
-  Home, Video, CheckSquare, Settings as SettingsIcon, 
-  LogOut, Upload,ArrowLeft
+import {
+  Loader2, Plus, Users, Building,
+  Home, Video, CheckSquare, Settings as SettingsIcon,
+  LogOut, Upload, ArrowLeft, MessageSquare
 } from "lucide-react";
 
-import { apiFetch } from "@/lib/api"; 
+import { apiFetch } from "@/lib/api";
 import DashboardHome from "@/components/DashboardHome";
 import MeetingsHub from "@/components/MeetingsHub";
 import ActionItems from "@/components/ActionItems";
 import TeamSettings from "@/components/TeamSettings";
 import UploadModal from "@/components/UploadModal";
+import RAGChat from "@/components/RAGChat";
 interface ApiResponse<T> {
   data?: T;
 }
@@ -237,6 +238,9 @@ export default function Dashboard() {
           <button onClick={() => setActiveTab('tasks')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium ${activeTab === 'tasks' ? 'bg-brand-maroon/5 text-brand-maroon' : 'text-slate-600 hover:bg-slate-50'}`}>
             <CheckSquare size={20} /> Action Items
           </button>
+          <button onClick={() => setActiveTab('ask-ai')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium ${activeTab === 'ask-ai' ? 'bg-brand-maroon/5 text-brand-maroon' : 'text-slate-600 hover:bg-slate-50'}`}>
+            <MessageSquare size={20} /> Ask AI
+          </button>
         </nav>
         <div className="p-4 border-t border-slate-200 space-y-2">
           {/* Settings tab for Admins and Owners only */}
@@ -262,6 +266,7 @@ export default function Dashboard() {
       {activeTab === 'meetings' && "Meetings Hub"}
       {activeTab === 'tasks' && "Action Items"}
       {activeTab === 'settings' && "Team Settings"}
+      {activeTab === 'ask-ai' && "Ask AI"}
     </h2>
   </div>
           
@@ -280,6 +285,7 @@ export default function Dashboard() {
           {activeTab === 'meetings' && <MeetingsHub meetings={meetings} isLoading={isLoadingData} onMeetingUpdated={fetchDashboardData} />}
           {activeTab === 'tasks' && <ActionItems tasks={tasks} meetings={meetings} isLoading={isLoadingData} onTaskUpdated={fetchDashboardData} />}
           {activeTab === 'settings' && isAdminOrOwner && <TeamSettings />}
+          {activeTab === 'ask-ai' && <RAGChat meetings={meetings} isLoading={isLoadingData} />}
         </div>
       </main>
 

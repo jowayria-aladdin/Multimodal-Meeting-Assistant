@@ -3,6 +3,7 @@ import { env } from "../config/env.js";
 import { httpError } from "../utils/httpError.js";
 import { promises as fs } from "fs";
 import path from "path";
+import { indexMeetingSafe } from "./rag.service.js";
 
 const participantSelection = {
   meeting_id: true,
@@ -460,6 +461,7 @@ export const handleMeetingProcessingCallback = async (meetingId, payload) => {
     const completedMeeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
     emitMeetingEvent(meetingId, "meeting.completed", toSsePayload(completedMeeting));
     await cleanupMeetingSourceFiles(meetingId);
+    void indexMeetingSafe(meetingId);
 
     return completedMeeting;
   }
